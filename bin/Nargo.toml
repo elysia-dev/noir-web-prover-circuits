@@ -7,3 +7,5 @@ version          = "0.1.0"
 
 [dependencies]
 http = { path = "../http" }
+chacha20 = { path = "../chacha20" }
+nivc = { path = "../nivc" }
