@@ -1,12 +1,11 @@
 // Helper function to simulate 32-bit addition with overflow
-fn add32(a: u32, b: u32) -> u32 {
-    let sum = (a as u64 + b as u64) & 0xFFFFFFFF;
-    sum as u32
+pub fn add32(a: u32, b: u32) -> u32 {
+    std::wrapping_add(a, b)
 }
 
 // Helper function to simulate 32-bit rotation
-fn rotate_left32(x: u32, n: u8) -> u32 {
-    ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF
+pub fn rotate_left32(x: u32, n: u8) -> u32 {
+    ((x << n) | (x >> (32 - n)))
 }
 
 // ChaCha20 Quarter Round operation
@@ -35,13 +34,11 @@ pub fn quarter_round(a: u32, b: u32, c: u32, d: u32) -> (u32, u32, u32, u32) {
     (a2, b4, c2, d4)
 }
 
-// Structure that holds the chacha20 state
 struct ChaChaState {
     state: [u32; 16],
 }
 
 impl ChaChaState {
-    // Instantiate a new chacha20 state with the required parameters
     fn new(key: [u32; 8], nonce: [u32; 3], counter: u32) -> Self {
         Self {
             state: [
@@ -52,25 +49,10 @@ impl ChaChaState {
         }
     }
 
-    // Add two ChaChaState's together elementwise
     fn add(&mut self, other: Self) {
         for i in 0..16 {
             self.state[i] = add32(self.state[i], other.state[i]);
         }
-    }
-
-    // Serializes the state as 4-byte little endian words
-    // TODO: should I use this function?
-    // https://github.com/SleepingShell/noir-chacha20/blob/main/crates/chacha20/src/block.nr#L58
-    fn to_le_4bytes(self) -> [u32; 16] {
-        let mut res = [0; 16];
-        for i in 0..16 {
-            res[i] = ((self.state[i] & 0xFF) << 24)
-                + ((self.state[i] & 0xFF00) << 8)
-                + ((self.state[i] & 0xFF0000) >> 8)
-                + ((self.state[i] & 0xFF000000) >> 24);
-        }
-        res
     }
 
     fn to_bytes(self) -> [u32; 16] {
@@ -81,7 +63,7 @@ impl ChaChaState {
         res
     }
 
-    // Runs quarter round on the working state 8 times
+    // 4 quarter-rounds for Column, 4 quarter-rounds for Diagonal
     fn inner_block(&mut self) {
         // Column rounds
         let (a0, a4, a8, a12) =
@@ -99,7 +81,6 @@ impl ChaChaState {
         let (b2, b7, b8, b13) = quarter_round(a2, a7, a8, a13);
         let (b3, b4, b9, b14) = quarter_round(a3, a4, a9, a14);
 
-        // Update state
         self.state = [b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15];
     }
 }
@@ -108,7 +89,7 @@ pub fn chacha20_block(key: [u32; 8], nonce: [u32; 3], counter: u32) -> [u32; 16]
     let mut state = ChaChaState::new(key, nonce, counter);
     let mut working_state = ChaChaState::new(key, nonce, counter);
 
-    // Run 10 rounds
+    // Run 20 rounds
     for _i in 0..10 {
         working_state.inner_block();
     }

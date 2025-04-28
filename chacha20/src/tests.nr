@@ -1,5 +1,6 @@
 use crate::chacha20::{chacha20_block, quarter_round};
-use crate::nivc::{DataHasher, NivcState, polynomial_digest};
+use crate::setup::{data_hasher, polynomial_digest, SetupState};
+use crate::setup::PADDING_VALUE;
 
 #[test]
 fn test_chacha20_quarter_round_example() {
@@ -52,7 +53,7 @@ fn test_chacha20_block_function() {
 }
 
 #[test]
-fn test_chacha20_nivc_16_block() {
+fn test_chacha20_setup_16_block() {
     // Test case from RCF https://www.rfc-editor.org/rfc/rfc7539.html#section-2.4.2
     let key = [
         0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0x13121110, 0x17161514, 0x1b1a1918,
@@ -64,7 +65,7 @@ fn test_chacha20_nivc_16_block() {
     let counter: u32 = 1;
 
     // "Ladies and Gentlemen of the class of '99: If I could offer you o"
-    let plaintext: [u8; 64] = [
+    let plaintext: [Field; 64] = [
         0x4c, 0x61, 0x64, 0x69, 0x65, 0x73, 0x20, 0x61, 0x6e, 0x64, 0x20, 0x47, 0x65, 0x6e, 0x74,
         0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x20, 0x6f, 0x66, 0x20, 0x74, 0x68, 0x65, 0x20, 0x63, 0x6c,
         0x61, 0x73, 0x73, 0x20, 0x6f, 0x66, 0x20, 0x27, 0x39, 0x39, 0x3a, 0x20, 0x49, 0x66, 0x20,
@@ -80,17 +81,17 @@ fn test_chacha20_nivc_16_block() {
         0x9f, 0x08, 0x61, 0xd8,
     ];
 
-    let ciphertext_digest = DataHasher::new(expected_ciphertext, Field::default());
+    let ciphertext_digest = data_hasher(expected_ciphertext, Field::default());
 
-    // Initialize NIVC state
-    let nivc = NivcState { key, nonce, counter, plaintext, ciphertext_digest };
+    // Initialize Setup state
+    let setup = SetupState { key, nonce, counter, plaintext, ciphertext_digest };
 
     // Initialize step_in
     let mut step_in: [Field; 11] = [Field::default(); 11];
     step_in[1] = Field::from(1); // ciphertext_digest_pow initializes as 1
 
     // Run verification
-    let step_out: [Field; 11] = nivc.verify(step_in);
+    let step_out: [Field; 11] = setup.verify(step_in);
 
     // Calculate expected output
     let plaintext_digest =
@@ -103,7 +104,7 @@ fn test_chacha20_nivc_16_block() {
 }
 
 #[test]
-fn test_chacha20_nivc_padded_text() {
+fn test_chacha20_setup_padded_text() {
     // Test case from RCF https://www.rfc-editor.org/rfc/rfc7539.html#section-2.4.2
     let key = [
         0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0x13121110, 0x17161514, 0x1b1a1918,
@@ -112,7 +113,7 @@ fn test_chacha20_nivc_padded_text() {
     let nonce: [u32; 3] = [0x00000000, 0x4a000000, 0x00000000];
     let counter: u32 = 1;
     // "Ladies and Gentlemen of the class of '99: If I could offer you only one tip "
-    let plaintext: [u8; 76] = [
+    let plaintext: [Field; 76] = [
         0x4c, 0x61, 0x64, 0x69, 0x65, 0x73, 0x20, 0x61, 0x6e, 0x64, 0x20, 0x47, 0x65, 0x6e, 0x74,
         0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x20, 0x6f, 0x66, 0x20, 0x74, 0x68, 0x65, 0x20, 0x63, 0x6c,
         0x61, 0x73, 0x73, 0x20, 0x6f, 0x66, 0x20, 0x27, 0x39, 0x39, 0x3a, 0x20, 0x49, 0x66, 0x20,
@@ -131,26 +132,26 @@ fn test_chacha20_nivc_padded_text() {
     ];
 
     let totalLength = 128;
-    // let paddedPlaintextBytes = plaintext.concat(Array(totalLength - plaintext.length).fill(0));
-    let mut paddedPlaintextByte = [0; 128];
+    let mut paddedPlaintextByte = [Field::default(); 128];
     for i in 0..totalLength {
         if i < plaintext.len() {
             paddedPlaintextByte[i] = plaintext[i];
         } else {
-            paddedPlaintextByte[i] = 0;
+            paddedPlaintextByte[i] = PADDING_VALUE;
         }
     }
-    let ciphertext_digest = DataHasher::new(expected_ciphertext, Field::from(0));
+    let ciphertext_digest = data_hasher(expected_ciphertext, Field::from(0));
 
-    // Initialize NIVC state
-    let nivc = NivcState { key, nonce, counter, plaintext: paddedPlaintextByte, ciphertext_digest };
+    // Initialize Setup state
+    let setup =
+        SetupState { key, nonce, counter, plaintext: paddedPlaintextByte, ciphertext_digest };
 
     // Initialize step_in
     let mut step_in: [Field; 11] = [Field::default(); 11];
     step_in[1] = Field::from(1); // ciphertext_digest_pow initializes as 1
 
     // Run verification
-    let step_out: [Field; 11] = nivc.verify(step_in);
+    let step_out: [Field; 11] = setup.verify(step_in);
 
     // Calculate expected output
     let plaintext_digest =
@@ -163,6 +164,74 @@ fn test_chacha20_nivc_padded_text() {
     assert(step_out[0] == expected_output);
 }
 
-fn test_chacha20_nivc_padded_text_split() {
-    // TODO: impl
+#[test]
+fn test_chacha20_setup_padded_text_split() {
+    // Test case from RCF https://www.rfc-editor.org/rfc/rfc7539.html#section-2.4.2
+    let key = [
+        0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0x13121110, 0x17161514, 0x1b1a1918,
+        0x1f1e1d1c,
+    ];
+    let nonce: [u32; 3] = [0x00000000, 0x4a000000, 0x00000000];
+    let counter: u32 = 1;
+    // "Ladies and Gentlemen of the class of '99: If I could offer you only one tip "
+    let plaintext: [Field; 76] = [
+        0x4c, 0x61, 0x64, 0x69, 0x65, 0x73, 0x20, 0x61, 0x6e, 0x64, 0x20, 0x47, 0x65, 0x6e, 0x74,
+        0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x20, 0x6f, 0x66, 0x20, 0x74, 0x68, 0x65, 0x20, 0x63, 0x6c,
+        0x61, 0x73, 0x73, 0x20, 0x6f, 0x66, 0x20, 0x27, 0x39, 0x39, 0x3a, 0x20, 0x49, 0x66, 0x20,
+        0x49, 0x20, 0x63, 0x6f, 0x75, 0x6c, 0x64, 0x20, 0x6f, 0x66, 0x66, 0x65, 0x72, 0x20, 0x79,
+        0x6f, 0x75, 0x20, 0x6f, 0x6e, 0x6c, 0x79, 0x20, 0x6f, 0x6e, 0x65, 0x20, 0x74, 0x69, 0x70,
+        0x20,
+    ]; // 76 bytes
+
+    let expected_ciphertext: [u8; 76] = [
+        0x6e, 0x2e, 0x35, 0x9a, 0x25, 0x68, 0xf9, 0x80, 0x41, 0xba, 0x07, 0x28, 0xdd, 0x0d, 0x69,
+        0x81, 0xe9, 0x7e, 0x7a, 0xec, 0x1d, 0x43, 0x60, 0xc2, 0x0a, 0x27, 0xaf, 0xcc, 0xfd, 0x9f,
+        0xae, 0x0b, 0xf9, 0x1b, 0x65, 0xc5, 0x52, 0x47, 0x33, 0xab, 0x8f, 0x59, 0x3d, 0xab, 0xcd,
+        0x62, 0xb3, 0x57, 0x16, 0x39, 0xd6, 0x24, 0xe6, 0x51, 0x52, 0xab, 0x8f, 0x53, 0x0c, 0x35,
+        0x9f, 0x08, 0x61, 0xd8, 0x07, 0xca, 0x0d, 0xbf, 0x50, 0x0d, 0x6a, 0x61, 0x56, 0xa3, 0x8e,
+        0x08,
+    ];
+
+    let totalLength = 128;
+    let mut paddedPlaintextByte = [Field::default(); 128];
+    for i in 0..totalLength {
+        if i < plaintext.len() {
+            paddedPlaintextByte[i] = plaintext[i];
+        } else {
+            paddedPlaintextByte[i] = PADDING_VALUE;
+        }
+    }
+    let ciphertext_digest = data_hasher(expected_ciphertext, Field::from(0));
+
+    let mut plaintext_1 = [Field::default(); 64];
+    let mut plaintext_2 = [Field::default(); 64];
+    for i in 0..64 {
+        plaintext_1[i] = paddedPlaintextByte[i];
+    }
+
+    for i in 0..64 {
+        plaintext_2[i] = paddedPlaintextByte[64 + i];
+    }
+    let mut step_in: [Field; 11] = [Field::default(); 11];
+    step_in[1] = Field::from(1); // ciphertext_digest_pow initializes as 1
+
+    // Setup1
+    let mut setup = SetupState { key, nonce, counter, plaintext: plaintext_1, ciphertext_digest };
+    let step_out: [Field; 11] = setup.verify(step_in);
+
+    // Setup2
+    setup =
+        SetupState { key, nonce, counter: counter + 1, plaintext: plaintext_2, ciphertext_digest };
+
+    step_in = step_out;
+    let step_out_2: [Field; 11] = setup.verify(step_in);
+
+    // Calculate expected output
+    let plaintext_digest =
+        polynomial_digest(plaintext.map(|x| Field::from(x)), ciphertext_digest, 1);
+    let expected_output = plaintext_digest - ciphertext_digest;
+
+    assert(step_out_2[0] == expected_output);
+    assert(step_out_2[1] == ciphertext_digest.pow_32(plaintext.len() as Field));
+    assert(step_out_2[10] == ciphertext_digest);
 }
