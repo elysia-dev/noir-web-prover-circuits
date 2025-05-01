@@ -88,7 +88,7 @@ pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOu
     
     let read_primitive = contains(byte, primitive_chars);
     
-    // // Read in a quote
+    // Read in a quote
     let read_quote = is_equal(byte, QUOTE);
     
     // Read in an escape
@@ -142,8 +142,6 @@ pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOu
     
     let next_parsing_primitive = parsing_primitive | (mul_mask_and_out[2] != 0);
 
-    
-    // // Toggle escaped if read
     let next_escaped = read_escape & !escaped;
     
     // Create default output

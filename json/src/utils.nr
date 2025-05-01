@@ -1,5 +1,3 @@
-
-
     use crate::language::{DATA_BYTES,MAX_STACK_HEIGHT} ;
 
     pub fn is_equal(a: u8, b: u8) -> bool {

@@ -1,9 +1,8 @@
 use crate::machine::{state_update_hasher,StateUpdateHasherInput};
 use crate::language::{DATA_BYTES,MAX_STACK_HEIGHT,PUBLIC_IO_LENGTH};
 use crate::utils::{polynomial_digest,polynomial_digest_with_counter};
-use std::hash::poseidon;
 
-fn extract(
+pub fn extract(
     data: [u8; DATA_BYTES],               
     ciphertext_digest: Field,                 
     sequence_digest: Field,                  
@@ -14,8 +13,6 @@ fn extract(
 
     let input_state_digest = polynomial_digest(state, ciphertext_digest);
     assert(step_in[8] == input_state_digest);
-
-    let sequence_digest_hashed = poseidon::bn254::hash_1([sequence_digest]);
 
     let mut monomials: [Field; 3 * MAX_STACK_HEIGHT] = [0; 3 * MAX_STACK_HEIGHT];
     monomials[0] = 1;
@@ -53,7 +50,6 @@ fn extract(
             escaped: prev_escaped,
         };
 
- 
         let output = state_update_hasher(input);
 
         prev_stack = output.next_stack.map(|x| [x[0] as Field, x[1] as Field]);
@@ -73,7 +69,6 @@ fn extract(
 
         sequence_is_matched[data_idx] = if state_digest[data_idx] == sequence_digest { 1 } else { 0 };
 
-      
         let mut value_digest_in_stack = 0;
         for i in 0..MAX_STACK_HEIGHT {
             value_digest_in_stack += prev_tree_hash[i][1];
