@@ -78,6 +78,27 @@
     }
 
 
+    pub fn compress_tree_hash(
+        ct_digest: Field,
+        stack: [[Field; 2]; MAX_STACK_HEIGHT],
+        tree_hashes: [[Field; 2]; MAX_STACK_HEIGHT]
+    ) -> Field {
+        let mut accumulator = 0;
+        let mut monomial = 1;
+
+        for i in 0..MAX_STACK_HEIGHT {
+            accumulator += stack[i][0] * monomial;
+            monomial *= ct_digest;
+            accumulator += stack[i][1] * monomial;
+            monomial *= ct_digest;
+            accumulator += tree_hashes[i][0] * monomial;
+            monomial *= ct_digest;
+            accumulator += tree_hashes[i][1] * monomial;
+            monomial *= ct_digest;
+        }
+
+        accumulator
+    }
   
 
 
