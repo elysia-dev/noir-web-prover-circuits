@@ -1,4 +1,4 @@
-use crate::utils::hash_utils::{is_equal,is_zero,contains} ;
+use crate::utils::{is_equal,contains} ;
 
 use super::language::
 {
@@ -63,7 +63,7 @@ pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOu
     let stack = input.stack;
     let parsing_string = input.parsing_string;
     let parsing_primitive = input.parsing_primitive;
-    let polynomial_input = input.polynomial_input;
+    //let polynomial_input = input.polynomial_input;
     let monomial = input.monomial;
     let tree_hash = input.tree_hash;
     let escaped = input.escaped;
@@ -93,9 +93,6 @@ pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOu
     
     // Read in an escape
     let read_escape = is_equal(byte, ESCAPE);
-    
-    // // Read other
-    let read_other = is_zero(read_delimiter as u8+ read_primitive as u8 + read_quote as u8);
     
     // // Define command instructions (equivalent to Command in Circom)
     let start_brace_instruction = [1, 0, 0];
@@ -193,7 +190,6 @@ fn state_to_mask(
     
     [mask_rw, mask_ps, part1 + part2]
 }
-
 
 
 pub fn get_top_of_stack(stack: [[u64; 2]; MAX_STACK_HEIGHT]) -> ([u64; 2], u64) {

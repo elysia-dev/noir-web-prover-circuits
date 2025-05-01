@@ -38,6 +38,8 @@
     pub comptime global PLUS: u8 = 43;    // +
     pub comptime global MINUS: u8 = 45;   // -
     
-    pub comptime global MAX_STACK_HEIGHT: u32 = 32;
-
-  
+    //Since Noir doesn't support dynamic length at compile time 
+    //We need to hardcode it instead 
+    pub comptime global MAX_STACK_HEIGHT: u32 = 7;
+    pub comptime global DATA_BYTES: u32 = 32;
+    pub comptime global PUBLIC_IO_LENGTH: u32 = 11 ;
