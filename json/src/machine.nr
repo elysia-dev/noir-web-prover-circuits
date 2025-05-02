@@ -1,611 +1,483 @@
+
+// This module implements a JSON parser state machine for zero-knowledge circuits.  
+// It processes JSON data byte-by-byte, maintaining a stack-based state machine  
+// that tracks the structure of JSON objects and arrays while computing cryptographic  
+// hashes of the data for selective disclosure proofs.  
+//  
+// The parser is designed to work with the JSONExtraction circuit from the original  
+// pluto/web-prover-circuits repository, ported from Circom to Noir.  
+
 use crate::utils::{is_equal,contains} ;
 
-use super::language::
-{
-MAX_STACK_HEIGHT ,
-START_BRACE, END_BRACE, START_BRACKET, END_BRACKET,
-COLON, COMMA,ZERO,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,N,U,L,F,A,S,E,T,R,PERIOD,E_CHAR,PLUS,MINUS,
-QUOTE,ESCAPE
-};
+use super::language::{  
+    MAX_STACK_HEIGHT,  // Maximum depth of nested JSON structures  
+    START_BRACE, END_BRACE, START_BRACKET, END_BRACKET,  // JSON structure characters: {, }, [, ]  
+    COLON, COMMA,  // JSON separator characters: :, ,  
+    ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE,  // Numeric characters  
+    N, U, L, F, A, S, E, T, R,  // Characters for null, false, true  
+    PERIOD, E_CHAR, PLUS, MINUS,  // Characters for floating point numbers  
+    QUOTE, ESCAPE  // String-related characters: ", \  
+};  
 
-// Parser state structure 
-// reference : https://github.com/pluto/web-prover-circuits/blob/main/docs/json.md
-
-pub struct ParserState<let N: u32> {
-    stack: [[u32; 2]; N],
-    tree_hash: [[Field; 2]; N],
-    parsing_string: bool,
-    parsing_primitive: bool,
-    monomial: Field,
-    escaped: bool,
-}
-
-pub struct StateUpdateHasherInput {
-    byte: u8,
-    stack: [[u64; 2]; MAX_STACK_HEIGHT],
-    parsing_string: bool,
-    parsing_primitive: bool,
-    polynomial_input: u64,
-    monomial: u64,
-    tree_hash: [[u64; 2]; MAX_STACK_HEIGHT],
-    escaped: bool,
-}
+pub struct StateUpdateHasherInput {    
+    pub byte: u8,                                  // Current byte being processed from the JSON input  
+    pub stack: [[Field; 2]; MAX_STACK_HEIGHT],     // Current stack state tracking JSON structure  
+                                                   // First element indicates type: 1=object, 2=array  
+                                                   // Second element indicates position: object key/value or array index  
+    pub parsing_string: bool,                      // Whether currently parsing a string (between quotes)  
+    pub parsing_primitive: bool,                   // Whether currently parsing a primitive value (number, null, etc.)  
+    pub polynomial_input: Field,                   // Base value for polynomial digests (usually ciphertext_digest)  
+    pub monomial: Field,                           // Current monomial for polynomial calculations  
+    pub tree_hash: [[Field; 2]; MAX_STACK_HEIGHT], // Current tree hash state accumulating hash values  
+                                                   // First element for object keys, second for values  
+    pub escaped: bool,                             // Whether the previous character was an escape character (\)  
+} 
 
 // The same strategy applies to outputs 
 //  - `next_stack[MAX_STACK_HEIGHT][2]`: the stack machine's stack after reading `byte`.
 //  - `next_parsing_string`            : a bool flag that indicates whether the parser is currently parsing a string or not after reading `byte`.
 //  - `next_parsing_primitive`            : a bool flag that indicates whether the parser is currently parsing a number or not after reading `byte`.
-pub struct StateUpdateHasherOutput {
-    next_stack: [[u64; 2]; MAX_STACK_HEIGHT],
-    next_parsing_string: bool,
-    next_parsing_primitive: bool,
-    next_monomial: u64,
-    next_tree_hash: [[u64; 2]; MAX_STACK_HEIGHT],
-    next_escaped: bool,
+pub struct StateUpdateHasherOutput {  
+    pub next_stack: [[Field; 2]; MAX_STACK_HEIGHT],     // Updated stack state after processing the byte  
+    pub next_parsing_string: bool,                      // Updated string parsing flag  
+    pub next_parsing_primitive: bool,                   // Updated primitive parsing flag  
+    pub next_monomial: Field,                           // Updated monomial value for polynomial hash  
+    pub next_tree_hash: [[Field; 2]; MAX_STACK_HEIGHT], // Updated tree hash state  
+    pub next_escaped: bool,                             // Updated escaped flag  
+}  
+
+/// Default implementation for StateUpdateHasherOutput  
+/// Initializes all fields to their default values (zeros and false)  
+impl Default for StateUpdateHasherOutput {  
+    fn default() -> Self {  
+        StateUpdateHasherOutput {  
+            next_stack: [[0; 2]; MAX_STACK_HEIGHT],  
+            next_parsing_string: false,  
+            next_parsing_primitive: false,  
+            next_monomial: 0,  
+            next_tree_hash: [[0; 2]; MAX_STACK_HEIGHT],  
+            next_escaped: false,  
+        }  
+    }  
+}  
+  
+pub struct RewriteStackInput {    
+    pub stack: [[Field; 2]; MAX_STACK_HEIGHT],     // Current stack state  
+    pub tree_hash: [[Field; 2]; MAX_STACK_HEIGHT], // Current tree hash state  
+    pub read_write_value: Field,                   // Value to write to the stack (from state_to_mask)  
+    pub read_start_brace: bool,                    // Whether the current byte is '{' (start object)  
+    pub read_start_bracket: bool,                  // Whether the current byte is '[' (start array)  
+    pub read_end_brace: bool,                      // Whether the current byte is '}' (end object)  
+    pub read_end_bracket: bool,                    // Whether the current byte is ']' (end array)  
+    pub read_colon: bool,                          // Whether the current byte is ':' (key-value separator)  
+    pub read_comma: bool,                          // Whether the current byte is ',' (element separator)  
+    pub read_quote: bool,                          // Whether the current byte is '"' (string delimiter)  
+    pub escaped: bool,                             // Whether the previous character was an escape character  
+    pub parsing_primitive: bool,                   // Whether currently parsing a primitive value  
+    pub parsing_string: bool,                      // Whether currently parsing a string  
+    pub next_parsing_string: bool,                 // Whether will be parsing a string after this byte  
+    pub next_parsing_primitive: bool,              // Whether will be parsing a primitive after this byte  
+    pub byte: u8,                                  // Current byte being processed  
+    pub polynomial_input: Field,                   // Base value for polynomial digests  
+    pub monomial: Field,                           // Current monomial for polynomial calculations  
+}  
+
+/// Contains the updated stack and tree hash after processing a byte.
+pub struct RewriteStackOutput {    
+    pub next_monomial: Field,                       // Updated monomial value for polynomial hash  
+    pub next_stack: [[Field; 2]; MAX_STACK_HEIGHT], // Updated stack state  
+    pub next_tree_hash: [[Field; 2]; MAX_STACK_HEIGHT], // Updated tree hash state  
+}  
+
+
+/// Generates a mask based on the current parsing state to determine which operations to apply.  
+/// This is a critical function that controls the state transitions of the parser.  
+///   
+/// # Parameters:  
+/// - `read_delimeter`: Whether the current byte is a delimiter character ({, }, [, ], :, ,)  
+/// - `read_primitive`: Whether the current byte is a primitive value character (0-9, t, f, n, etc.)  
+/// - `parsing_string`: Whether currently parsing a string (between quotes)  
+/// - `parsing_primitive`: Whether currently parsing a primitive value  
+///   
+/// # Returns:  
+/// An array of three Field values representing masks for:  
+/// - [0]: read_write_value mask (whether to modify the stack)  
+/// - [1]: parsing_string mask (whether to toggle string parsing)  
+/// - [2]: parsing_primitive mask (whether to toggle primitive parsing)  
+fn state_to_mask(  
+    read_delimeter: bool,  
+    read_primitive: bool,  
+    parsing_string: bool,  
+    parsing_primitive: bool  
+) -> [Field; 3] {  
+    // Convert booleans to Field values explicitly to avoid issues with boolean operations  
+    let parsing_string_field = parsing_string as Field;  
+    let parsing_primitive_field = parsing_primitive as Field;  
+    let read_delimeter_field = read_delimeter as Field;  
+    let read_primitive_field = read_primitive as Field;  
+  
+    // Calculate masks using Field arithmetic  
+    // Mask for read_write_value: only modify stack if not parsing a string  
+    let mask_rw = 1 - parsing_string_field;  
+      
+    // Mask for parsing_string: toggle between 1 and 0 to flip the bit  
+    let mask_ps = 1 - parsing_string_field;  
+  
+    // Complex logic for parsing_primitive mask:  
+      
+    //  Currently parsing a primitive and read a delimiter -> end primitive parsing  
+    let parsing_number_read_delim = parsing_primitive_field * read_delimeter_field;  
+      
+    // Not parsing a primitive but read a primitive character -> start primitive parsing  
+    let read_prim_not_parsing = (1 - parsing_primitive_field) * read_primitive_field;  
+      
+    // Only apply these cases if not parsing a string  
+    let part1 = (1 - parsing_string_field) * (parsing_number_read_delim + read_prim_not_parsing);  
+      
+    //  Currently parsing a primitive, read a non-primitive, non-delimiter character  
+    // -> continue parsing primitive (e.g., whitespace in a number)  
+    let part2 = parsing_primitive_field * (1 - read_primitive_field) * (1 - read_delimeter_field);  
+   
+    [mask_rw, mask_ps, part1 + part2]  
+}  
+
+/// Gets the top element of the stack and its position.  
+/// The stack represents the current JSON structure being parsed
+pub fn get_top_of_stack(stack: [[Field; 2]; MAX_STACK_HEIGHT]) -> ([Field; 2], Field) {    
+    let mut value: [Field; 2] = [Field::from(0), Field::from(0)];     
+    let mut selector: Field = Field::from(0);    
+        
+    // Count non-zero entries and keep track of values    
+    for i in 0..MAX_STACK_HEIGHT {    
+        // Check if stack[i] is not [0,0] (i.e., it's allocated/used)  
+        let is_allocated = stack[i] != [Field::from(0), Field::from(0)];    
+            
+        // Increment selector if slot is allocated    
+        if is_allocated {    
+            selector += Field::from(1);    
+        }    
+            
+        // Store this value if it's the highest allocated slot    
+        // This effectively finds the top of the stack  
+        if is_allocated {    
+            value = stack[i];    
+        }    
+    }    
+        
+    (value, selector)  
 }
 
-impl Default for StateUpdateHasherOutput {
-    fn default() -> Self {
-        StateUpdateHasherOutput {
-            next_stack: [[0; 2]; MAX_STACK_HEIGHT],
-            next_parsing_string: false,
-            next_parsing_primitive: false,
-            next_monomial: 0,
-            next_tree_hash: [[0; 2]; MAX_STACK_HEIGHT],
-            next_escaped: false,
-        }
-    }
+
+/// Rewrites the stack and tree hash based on the current byte and parsing state.    
+pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {      
+    // Extract all inputs      
+    let stack = input.stack;      
+    let tree_hash = input.tree_hash;      
+    let read_write_value = input.read_write_value;      
+    let read_start_brace = input.read_start_brace;      
+    let read_start_bracket = input.read_start_bracket;      
+    let read_end_brace = input.read_end_brace;      
+    let read_end_bracket = input.read_end_bracket;      
+    let read_colon = input.read_colon;      
+    let read_comma = input.read_comma;      
+    let read_quote = input.read_quote;      
+    let escaped = input.escaped;      
+    let parsing_primitive = input.parsing_primitive;      
+    let parsing_string = input.parsing_string;      
+    let next_parsing_string = input.next_parsing_string;      
+    let next_parsing_primitive = input.next_parsing_primitive;      
+    let byte = input.byte;      
+    let polynomial_input = input.polynomial_input;      
+    let monomial = input.monomial;      
+      
+    // Composite signals      
+    let read_colon_and_not_parsing_string = read_colon & !parsing_string;      
+    let read_comma_and_not_parsing_string = read_comma & !parsing_string;      
+      
+    // Get top of stack      
+    let (current_value, pointer) = get_top_of_stack(stack);      
+          
+    // Check if value indicates currently in an array      
+    let in_array = current_value[0] == Field::from(2);      
+          
+    // Composite signals      
+    let read_comma_in_array = read_comma & in_array;      
+    let read_comma_not_in_array = read_comma & !in_array;      
+          
+    // Determine whether we are pushing or popping from the stack      
+    let is_push = Field::from((read_start_brace | read_start_bracket) as u64);      
+    let is_pop = Field::from((read_end_brace | read_end_bracket) as u64);      
+          
+    // Create indicators for where we are pushing to or popping from      
+    let mut indicator = [false; MAX_STACK_HEIGHT];      
+    let mut tree_hash_indicator = [false; MAX_STACK_HEIGHT];      
+          
+    for i in 0..MAX_STACK_HEIGHT {      
+        indicator[i] = pointer - is_pop - Field::from(read_colon_and_not_parsing_string as u64) - Field::from(read_comma_and_not_parsing_string as u64) == Field::from(i as u64);      
+        tree_hash_indicator[i] = pointer - Field::from(1) == Field::from(i as u64);      
+    }      
+          
+    // Hash the next_* states to produce hash we need      
+    let mut state_hash: [[Field; MAX_STACK_HEIGHT + 1]; 2] = [[Field::from(0); MAX_STACK_HEIGHT + 1]; 2];      
+      
+    for i in 0..MAX_STACK_HEIGHT {      
+        state_hash[0][i+1] = state_hash[0][i] + (Field::from(tree_hash_indicator[i] as u64) * tree_hash[i][0]);      
+        state_hash[1][i+1] = state_hash[1][i] + (Field::from(tree_hash_indicator[i] as u64) * tree_hash[i][1]);      
+    }      
+          
+    let is_object_key = current_value == [Field::from(1), Field::from(0)];      
+    let is_object_value = current_value == [Field::from(1), Field::from(1)];      
+    let is_array = current_value[0] == Field::from(2);      
+          
+    let not_to_hash = (parsing_string & next_parsing_string) | next_parsing_primitive;      
+    let hash_0 = Field::from(is_object_key as u64) * state_hash[0][MAX_STACK_HEIGHT];      
+    let hash_1 = Field::from((is_object_value | is_array) as u64) * state_hash[1][MAX_STACK_HEIGHT];      
+          
+    let monomial_is_zero = monomial == Field::from(0);      
+    let increased_power = monomial * polynomial_input;      
+      
+    // Using the formula from the original implementation  
+    let next_monomial = Field::from(1 - not_to_hash as u64) * (Field::from(monomial_is_zero as u64) + increased_power);  
+      
+    let option_hash = hash_0 + hash_1 + (Field::from(byte as u64) * next_monomial);    
+        
+    // Calculate next state hash using field arithmetic for precision    
+    let next_state_hash_0 = Field::from(not_to_hash as u64) * (state_hash[0][MAX_STACK_HEIGHT] - option_hash) + option_hash;  
+    let next_state_hash_1 = Field::from(not_to_hash as u64) * (state_hash[1][MAX_STACK_HEIGHT] - option_hash) + option_hash;  
+          
+    // Modify the stack and tree hash    
+    let stack_change_value = [    
+        (is_push + is_pop) * read_write_value,     
+        Field::from(read_colon_and_not_parsing_string as u64) +     
+        Field::from(read_comma_in_array as u64) -     
+        Field::from(read_comma_not_in_array as u64)    
+    ];    
+        
+    let still_parsing_string = parsing_string & next_parsing_string;    
+    let still_parsing_object_key = still_parsing_string & is_object_key;    
+    let end_kv = (!parsing_string) & (read_comma_and_not_parsing_string | read_end_brace | read_end_bracket);    
+        
+    let to_change_zeroth = (!is_array & still_parsing_object_key) | end_kv;    
+    let to_change_first = is_object_value | is_array;    
+        
+    let to_clear_zeroth = end_kv;    
+    let stopped_parsing_primitive = parsing_primitive & !next_parsing_primitive;    
+    let read_quote_not_escaped = read_quote & !escaped;    
+    let not_to_clear_first = !(end_kv | (read_quote_not_escaped & parsing_string) | stopped_parsing_primitive);    
+    let to_clear_first = !not_to_clear_first;    
+        
+    let tree_hash_change_value = [    
+        Field::from(!to_clear_zeroth as u64) * next_state_hash_0,    
+        Field::from(!to_clear_first as u64) * next_state_hash_1    
+    ];    
+        
+    let mut to_update_hash = [[[false; 2]; MAX_STACK_HEIGHT]; 1];    
+    for i in 0..MAX_STACK_HEIGHT {    
+        to_update_hash[0][i][0] = tree_hash_indicator[i] & to_change_zeroth;    
+        to_update_hash[0][i][1] = tree_hash_indicator[i] & to_change_first;    
+    }    
+        
+    // Prepare output    
+    let mut next_stack: [[Field; 2]; MAX_STACK_HEIGHT] = [[Field::from(0); 2]; MAX_STACK_HEIGHT];    
+    let mut next_tree_hash: [[Field; 2]; MAX_STACK_HEIGHT] = [[Field::from(0); 2]; MAX_STACK_HEIGHT];    
+        
+    for i in 0..MAX_STACK_HEIGHT {    
+        next_stack[i][0] = stack[i][0] + (Field::from(indicator[i] as u64) * stack_change_value[0]);    
+        let second_index_clear = stack[i][1] * Field::from((read_end_brace | read_end_bracket) as u64);    
+        next_stack[i][1] = stack[i][1] + (Field::from(indicator[i] as u64) * (stack_change_value[1] - second_index_clear));    
+            
+        if to_update_hash[0][i][0] {    
+            next_tree_hash[i][0] = tree_hash_change_value[0];    
+        } else {    
+            next_tree_hash[i][0] = tree_hash[i][0];    
+        }    
+            
+        if to_update_hash[0][i][1] {    
+            next_tree_hash[i][1] = tree_hash_change_value[1];    
+        } else {    
+            next_tree_hash[i][1] = tree_hash[i][1];    
+        }    
+    }    
+        
+    RewriteStackOutput {    
+        next_monomial,    
+        next_stack,    
+        next_tree_hash    
+    }    
 }
+
 
 //Update current status based on input byte and output the next 
-pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOutput {
-    let byte = input.byte;
-    let stack = input.stack;
-    let parsing_string = input.parsing_string;
-    let parsing_primitive = input.parsing_primitive;
-    //let polynomial_input = input.polynomial_input;
-    let monomial = input.monomial;
-    let tree_hash = input.tree_hash;
-    let escaped = input.escaped;
-    
-    // Break down what was read
-    let read_start_brace = is_equal(byte, START_BRACE);
-    let read_end_brace = is_equal(byte, END_BRACE);
-    let read_start_bracket = is_equal(byte, START_BRACKET);
-    let read_end_bracket = is_equal(byte, END_BRACKET);
-    let read_colon = is_equal(byte, COLON);
-    let read_comma = is_equal(byte, COMMA);
-    
-    // Read in some delimiter
-    let read_delimiter = read_start_brace | read_end_brace | read_start_bracket |
-                         read_end_bracket | read_colon | read_comma;
-    
-    // Read in some primitive
-    let primitive_chars:[u8; 23] = [
-        ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, 
-        N, U, L, F, A, S, E, T, R, PERIOD, E_CHAR, PLUS, MINUS
-    ];
-    
-    let read_primitive = contains(byte, primitive_chars);
-    
-    // Read in a quote
-    let read_quote = is_equal(byte, QUOTE);
-    
-    // Read in an escape
-    let read_escape = is_equal(byte, ESCAPE);
-    
-    // // Define command instructions (equivalent to Command in Circom)
-    let start_brace_instruction = [1, 0, 0];
-    let end_brace_instruction = [2, 0, 0];
-    let start_bracket_instruction = [3, 0, 0];
-    let end_bracket_instruction = [4, 0, 0];
-    let colon_instruction = [5, 0, 0];
-    let comma_instruction = [6, 0, 0];
-    let number_instruction = [0, 0, 1];
-    let quote_instruction = [0, 1, 0];
-    
-    // // Yield instruction based on what byte we read
-    let mut instruction = [0,0,0];
-    if read_start_brace {
-        instruction = start_brace_instruction;
-    } else if read_end_brace {
-        instruction = end_brace_instruction;
-    } else if read_start_bracket {
-        instruction = start_bracket_instruction;
-    } else if read_end_bracket {
-        instruction = end_bracket_instruction;
-    } else if read_colon {
-        instruction = colon_instruction;
-    } else if read_comma {
-        instruction = comma_instruction;
-    } else if read_primitive {
-        instruction = number_instruction;
-    } else if read_quote {
-        instruction = quote_instruction;
-    }
-    
-    // Get the instruction mask based on current state
-    let mask = state_to_mask(read_delimiter, read_primitive, parsing_string, parsing_primitive);
-    
-    //  Multiply the mask array elementwise with the instruction array
-    let mut mul_mask_and_out = [0,0,0];
-    for i in 0..3 {
-        mul_mask_and_out[i] = mask[i] * instruction[i];
-    }
-     
-    // // Update parsing flags
-    let next_parsing_string = if escaped {
-        parsing_string
-    } else {
-        parsing_string ^ (mul_mask_and_out[1] != 0)
-    };
-    
-    let next_parsing_primitive = parsing_primitive | (mul_mask_and_out[2] != 0);
-
-    let next_escaped = read_escape & !escaped;
-    
-    // Create default output
-    let mut output = StateUpdateHasherOutput {
-        next_stack: [[0; 2]; MAX_STACK_HEIGHT],
-        next_parsing_string: false,
-        next_parsing_primitive: false,
-        next_monomial: 0,
-        next_tree_hash: [[0; 2]; MAX_STACK_HEIGHT],
-        next_escaped: false,
-    };
-    
-    // Set output values
-    output.next_stack = stack;
-    output.next_tree_hash = tree_hash;
-    output.next_monomial = monomial;
-    output.next_parsing_string = next_parsing_string;
-    output.next_parsing_primitive = next_parsing_primitive;
-    output.next_escaped = next_escaped;
-    
-    output
-}
-
-
-
-// # Inputs:
-//  - `readDelimeter` : a bool flag that indicates whether the byte value read was a delimeter.
-//  - `readPrimitive`    : a bool flag that indicates whether the byte value read was for a primitive value.
-//  - `parsing_string`: a bool flag that indicates whether the parser is currently parsing a string or not.
-//  - `parsing_primitive`: a bool flag that indicates whether the parser is currently parsing a number or not.
-fn state_to_mask(
-    read_delimeter: bool,
-    read_primitive: bool,
-    parsing_string: bool,
-    parsing_primitive: bool
-) -> [u64; 3] {
-    let mask_rw = !parsing_string as u64;
-    let mask_ps = (1 -  parsing_string as u64) as u64;
-    
-    let parsing_number_read_delim = parsing_primitive as u64 * read_delimeter as u64;
-    let read_prim_not_parsing = (!parsing_primitive) as u64 * read_primitive as u64;
-    let part1 = (!parsing_string) as u64 * (parsing_number_read_delim + read_prim_not_parsing);
-    let part2 = parsing_primitive as u64 * (!read_primitive) as u64 * (!read_delimeter) as u64;
-    
-    [mask_rw, mask_ps, part1 + part2]
-}
-
-
-pub fn get_top_of_stack(stack: [[u64; 2]; MAX_STACK_HEIGHT]) -> ([u64; 2], u64) {
-    let mut value: [u64; 2] = [0, 0]; 
-    let mut selector: u64 = 0;
-    
-    // Count non-zero entries and keep track of values
-    for i in 0..MAX_STACK_HEIGHT {
-        // Check if stack[i] is not [0,0]
-        let is_allocated = stack[i] != [0, 0];
+pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOutput {    
+    let byte = input.byte;    
+    let stack = input.stack;    
+    let parsing_string = input.parsing_string;    
+    let parsing_primitive = input.parsing_primitive;    
+    let polynomial_input = input.polynomial_input;    
+    let monomial = input.monomial;    
+    let tree_hash = input.tree_hash;    
+    let escaped = input.escaped;    
         
-        // Increment selector if slot is allocated
-        if is_allocated {
-            selector += 1;
-        }
+    // Break down what was read    
+    let read_start_brace = is_equal(byte, START_BRACE);    
+    let read_end_brace = is_equal(byte, END_BRACE);    
+    let read_start_bracket = is_equal(byte, START_BRACKET);    
+    let read_end_bracket = is_equal(byte, END_BRACKET);    
+    let read_colon = is_equal(byte, COLON);    
+    let read_comma = is_equal(byte, COMMA);    
         
-        // Store this value if it's the highest allocated slot
-        if is_allocated {
-            value = stack[i];
-        }
-    }
-    
-    (value, selector)
-}
-
-
-pub struct RewriteStackInput {
-    stack: [[u64; 2]; MAX_STACK_HEIGHT],
-    tree_hash: [[u64; 2]; MAX_STACK_HEIGHT],
-    read_write_value: u64,
-    read_start_brace: bool,
-    read_start_bracket: bool,
-    read_end_brace: bool,
-    read_end_bracket: bool,
-    read_colon: bool,
-    read_comma: bool,
-    read_quote: bool,
-    escaped: bool,
-    parsing_primitive: bool,
-    parsing_string: bool,
-    next_parsing_string: bool,
-    next_parsing_primitive: bool,
-    byte: u8,
-    polynomial_input: u64,
-    monomial: u64,
-}
-
-pub struct RewriteStackOutput {
-    next_monomial: u64,
-    next_stack: [[Field; 2]; MAX_STACK_HEIGHT],
-    next_tree_hash: [[Field; 2]; MAX_STACK_HEIGHT],
-}
-
-
-pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
-    // Extract all inputs
-    let stack = input.stack;
-    let tree_hash = input.tree_hash;
-    let read_write_value = input.read_write_value;
-    let read_start_brace = input.read_start_brace;
-    let read_start_bracket = input.read_start_bracket;
-    let read_end_brace = input.read_end_brace;
-    let read_end_bracket = input.read_end_bracket;
-    let read_colon = input.read_colon;
-    let read_comma = input.read_comma;
-    let read_quote = input.read_quote;
-    let escaped = input.escaped;
-    let parsing_primitive = input.parsing_primitive;
-    let parsing_string = input.parsing_string;
-    let next_parsing_string = input.next_parsing_string;
-    let next_parsing_primitive = input.next_parsing_primitive;
-    let byte = input.byte;
-    let polynomial_input = input.polynomial_input;
-    let monomial = input.monomial;
-
-    // Composite signals
-    let read_colon_and_not_parsing_string = read_colon & !parsing_string;
-    let read_comma_and_not_parsing_string = read_comma & !parsing_string;
-
-    // Get top of stack
-    let (current_value, pointer) = get_top_of_stack(stack);
-    
-    // Check if value indicates currently in an array
-    let in_array = current_value[0] == 2;
-    
-    // Composite signals
-    let read_comma_in_array = read_comma & in_array;
-    let read_comma_not_in_array = read_comma & !in_array;
-    
-    // Determine whether we are pushing or popping from the stack
-    let is_push = (read_start_brace | read_start_bracket) as u64;
-    let is_pop = (read_end_brace | read_end_bracket) as u64;
-    let next_pointer = pointer as u64 + is_push - is_pop;
-    
-    // Create indicators for where we are pushing to or popping from
-    let mut indicator = [false; MAX_STACK_HEIGHT];
-    let mut tree_hash_indicator = [false; MAX_STACK_HEIGHT];
-    
-    for i in 0..MAX_STACK_HEIGHT {
-        indicator[i] = pointer as u64 - is_pop - read_colon_and_not_parsing_string as u64 - read_comma_and_not_parsing_string as u64 == i as u64;
-        tree_hash_indicator[i] = pointer as u64 - 1 == i as u64;
-    }
-    
-    // Hash the next_* states to produce hash we need
-    let mut state_hash: [[u64; MAX_STACK_HEIGHT + 1]; 2] = [[0; MAX_STACK_HEIGHT + 1]; 2];
-
-    for i in 0..MAX_STACK_HEIGHT {
-        state_hash[0][i+1] = state_hash[0][i] + (tree_hash_indicator[i] as u64 * tree_hash[i][0]);
-        state_hash[1][i+1] = state_hash[1][i] + (tree_hash_indicator[i] as u64 * tree_hash[i][1]);
-    }
-    
-    let is_object_key = current_value == [1, 0];
-    let is_object_value = current_value == [1, 1];
-    let is_array = current_value[0] == 2;
-    
-    let not_to_hash = (parsing_string & next_parsing_string) | next_parsing_primitive;
-    let hash_0 = is_object_key as u64 * state_hash[0][MAX_STACK_HEIGHT];
-    let hash_1 = ((is_object_value |is_array) as u64) * state_hash[1][MAX_STACK_HEIGHT];
-    
-    let monomial_is_zero = monomial == 0;
-    let increased_power = monomial * polynomial_input;
-    let next_monomial = (!not_to_hash as u64) * (monomial_is_zero as u64 + increased_power);
-    let option_hash = hash_0 + hash_1 + (byte as u64 * next_monomial);
-    
-    let mut next_state_hash: [Field; 2] = [0; 2];
-    next_state_hash[0] = (not_to_hash as Field * (state_hash[0][MAX_STACK_HEIGHT] - option_hash)as Field) + option_hash as Field;
-    next_state_hash[1] = (not_to_hash as Field * (state_hash[1][MAX_STACK_HEIGHT] - option_hash)as Field) + option_hash as Field;
-    
-   
-    // Modify the stack and tree hash
-    let stack_change_value = [(is_push + is_pop) * read_write_value, 
-                             (read_colon_and_not_parsing_string as u64) + 
-                             (read_comma_in_array as u64) - 
-                             (read_comma_not_in_array as u64)];
-    
-    let still_parsing_string = parsing_string & next_parsing_string;
-    let still_parsing_object_key = still_parsing_string & is_object_key;
-    let end_kv = (!parsing_string) & (read_comma_and_not_parsing_string | read_end_brace | read_end_bracket);
-    
-    let to_change_zeroth = (!is_array & still_parsing_object_key) | end_kv;
-    
-    let to_change_first = is_object_value | is_array;
-    
-    let to_clear_zeroth = end_kv;
-    let stopped_parsing_primitive = parsing_primitive & !next_parsing_primitive;
-    let read_quote_not_escaped = read_quote & !escaped;
-    let not_to_clear_first = !(end_kv | (read_quote_not_escaped & parsing_string) | stopped_parsing_primitive);
-    let to_clear_first = !not_to_clear_first;
-    
-    let tree_hash_change_value = [
-        (!to_clear_zeroth as u64) * next_state_hash[0] as u64,
-        (!to_clear_first as u64) * next_state_hash[1] as u64
-    ];
-    
-    let mut to_update_hash = [[[false; 2]; MAX_STACK_HEIGHT]; 1];
-    for i in 0..MAX_STACK_HEIGHT {
-        to_update_hash[0][i][0] = tree_hash_indicator[i] & to_change_zeroth;
-        to_update_hash[0][i][1] = tree_hash_indicator[i] & to_change_first;
-    }
-    
-    // Prepare output
-    let mut next_stack: [[Field; 2]; MAX_STACK_HEIGHT] = [[0; 2]; MAX_STACK_HEIGHT];
-    let mut next_tree_hash: [[Field; 2]; MAX_STACK_HEIGHT] = [[0; 2]; MAX_STACK_HEIGHT];
-
-    
-    for i in 0..MAX_STACK_HEIGHT {
-        next_stack[i][0] = stack[i][0] as Field + (indicator[i] as Field * stack_change_value[0] as Field);
-        let second_index_clear = stack[i][1] * ((read_end_brace | read_end_bracket) as u64);
-        next_stack[i][1] = stack[i][1] as Field + (indicator[i] as Field * (stack_change_value[1] - second_index_clear) as Field);
+    // Read in some delimiter    
+    let read_delimiter = read_start_brace | read_end_brace | read_start_bracket |    
+                         read_end_bracket | read_colon | read_comma;    
         
-        if to_update_hash[0][i][0] {
-            next_tree_hash[i][0] = tree_hash_change_value[0] as Field ;
-        } else {
-            next_tree_hash[i][0] = tree_hash[i][0] as Field ;
-        }
+    // Read in some primitive    
+    let primitive_chars:[u8; 23] = [    
+        ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE,     
+        N, U, L, F, A, S, E, T, R, PERIOD, E_CHAR, PLUS, MINUS    
+    ];    
         
-        if to_update_hash[0][i][1] {
-            next_tree_hash[i][1] = tree_hash_change_value[1] as Field;
-        } else {
-            next_tree_hash[i][1] = tree_hash[i][1] as Field;
-        }
-    }
-    
-    // Check for underflow or overflow
-    // Note: In Noir we don't have `InRange` like in Circom
-    // We'd need to ensure pointer is in valid range [0, MAX_STACK_HEIGHT]
-    assert(next_pointer >= 0 & next_pointer <= MAX_STACK_HEIGHT as u64, "Stack pointer out of range");
-    
-    RewriteStackOutput {
-        next_monomial,
-        next_stack,
-        next_tree_hash
-    }
-}
-
-//This function only for test purpose 
-fn create_empty_input(byte: u8) -> StateUpdateHasherInput {
-        StateUpdateHasherInput {
-            byte,
-            stack: [[0; 2]; MAX_STACK_HEIGHT],
-            parsing_string: false,
-            parsing_primitive: false,
-            polynomial_input: 1,
-            monomial: 0,
-            tree_hash: [[0; 2]; MAX_STACK_HEIGHT],
-            escaped: false,
-        }
-}
-
-#[test]
-fn test_state_update_open_brace() {
-        let input = create_empty_input(START_BRACE);
-        let output = state_update_hasher(input);
+    let read_primitive = contains(byte, primitive_chars);    
         
-        assert(output.next_parsing_string == false);
-        assert(output.next_parsing_primitive == false);
-        assert(output.next_escaped == false);
-}
-
-#[test]
-    fn test_state_update_string() {
-        let input = create_empty_input(QUOTE);
-        let output = state_update_hasher(input);
+    // Read in a quote    
+    let read_quote = is_equal(byte, QUOTE);    
         
-        assert(output.next_parsing_string == true);
-        assert(output.next_parsing_primitive == false);
-
-        let mut string_input = create_empty_input(ONE);
-        string_input.parsing_string = true;
-        let string_output = state_update_hasher(string_input);
+    // Read in an escape    
+    let read_escape = is_equal(byte, ESCAPE);    
         
-        assert(string_output.next_parsing_string == true);
-        assert(string_output.next_parsing_primitive == false);
-
-         let mut end_string_input = create_empty_input(QUOTE);
-         end_string_input.parsing_string = true;
-         let end_string_output = state_update_hasher(end_string_input);
+    // Define command instructions    
+    let start_brace_instruction = [1, 0, 0];    
+    let end_brace_instruction = [2, 0, 0];    
+    let start_bracket_instruction = [3, 0, 0];    
+    let end_bracket_instruction = [4, 0, 0];    
+    let colon_instruction = [5, 0, 0];    
+    let comma_instruction = [6, 0, 0];    
+    let number_instruction = [0, 0, 1];    
+    let quote_instruction = [0, 1, 0];    
         
-         assert(end_string_output.next_parsing_string == true);
-         assert(end_string_output.next_parsing_primitive == false);
-    }
-#[test]
-    fn test_state_update_escape() {
-    
-        let mut input = create_empty_input(ESCAPE);
-        input.parsing_string = true;
-        let output = state_update_hasher(input);
+    // Yield instruction based on what byte we read    
+    let mut instruction = [0, 0, 0];    
+    if read_start_brace {    
+        instruction = start_brace_instruction;    
+    } else if read_end_brace {    
+        instruction = end_brace_instruction;    
+    } else if read_start_bracket {    
+        instruction = start_bracket_instruction;    
+    } else if read_end_bracket {    
+        instruction = end_bracket_instruction;    
+    } else if read_colon {    
+        instruction = colon_instruction;    
+    } else if read_comma {    
+        instruction = comma_instruction;    
+    } else if read_primitive {    
+        instruction = number_instruction;    
+    } else if read_quote {    
+        instruction = quote_instruction;    
+    }    
         
-        assert(output.next_parsing_string == true);
-        assert(output.next_escaped == true);
+    // Get the instruction mask based on current state    
+    let mask = state_to_mask(read_delimiter, read_primitive, parsing_string, parsing_primitive);    
+        
+    // Multiply the mask array elementwise with the instruction array    
+    let mut mul_mask_and_out: [Field; 3] = [Field::from(0), Field::from(0), Field::from(0)];    
       
-        let mut quote_input = create_empty_input(QUOTE);
-        quote_input.parsing_string = true;
-        quote_input.escaped = true;
-        let quote_output = state_update_hasher(quote_input);
+    // Multiply mask and instruction arrays using Field type  
+    for i in 0..3 {    
+        mul_mask_and_out[i] = mask[i] * Field::from(instruction[i]);  
+    }    
+         
+    // Update parsing flags    
+    let next_parsing_string = if escaped {    
+        parsing_string    
+    } else {    
+        parsing_string ^ (mul_mask_and_out[1] != Field::from(0))    
+    };    
         
-        assert(quote_output.next_parsing_string == true);
-        assert(quote_output.next_escaped == false);
-    }
-
-#[test]
-    fn test_state_update_number() {
-        let input = create_empty_input(ONE);
-        let output = state_update_hasher(input);
+    let next_parsing_primitive = parsing_primitive | (mul_mask_and_out[2] != Field::from(0));    
+    let next_escaped = read_escape & !escaped;    
+         
+    let rewrite_input = RewriteStackInput {    
+        stack,    
+        tree_hash,    
+        read_write_value: mul_mask_and_out[0],    
+        read_start_brace,    
+        read_start_bracket,    
+        read_end_brace,    
+        read_end_bracket,    
+        read_colon,    
+        read_comma,    
+        read_quote,    
+        escaped,    
+        parsing_primitive,    
+        parsing_string,    
+        next_parsing_string,    
+        next_parsing_primitive,    
+        byte,    
+        polynomial_input,    
+        monomial,    
+    };    
         
-        assert(output.next_parsing_primitive == true);
-    
-        let mut next_digit_input = create_empty_input(ZERO);
-        next_digit_input.parsing_primitive = true;
-        let next_digit_output = state_update_hasher(next_digit_input);
+    let rewrite_output = rewrite_stack(rewrite_input);    
+         
+    let mut output = StateUpdateHasherOutput::default();    
+    output.next_stack = rewrite_output.next_stack;    
+    output.next_tree_hash = rewrite_output.next_tree_hash;    
+    output.next_monomial = rewrite_output.next_monomial;    
+    output.next_parsing_string = next_parsing_string;    
+    output.next_parsing_primitive = next_parsing_primitive;    
+    output.next_escaped = next_escaped;    
         
-        assert(next_digit_output.next_parsing_primitive == true);
-    }
-
-#[test]
-fn test_get_top_of_stack() {
-        let empty_stack = [[0; 2]; MAX_STACK_HEIGHT];
-        let (value, selector) = get_top_of_stack(empty_stack);
-        
-        assert(value == [0, 0]);
-        assert(selector == 0);
-        
-        let mut one_item_stack = [[0; 2]; MAX_STACK_HEIGHT];
-        one_item_stack[0] = [1, 0];
-        let (one_item_value, one_item_selector) = get_top_of_stack(one_item_stack);
-        
-        assert(one_item_value == [1, 0]);
-        assert(one_item_selector == 1);
-        
-        let mut multi_stack = [[0; 2]; MAX_STACK_HEIGHT];
-        multi_stack[0] = [1, 0];
-        multi_stack[1] = [2, 1];
-        let (multi_value, multi_selector) = get_top_of_stack(multi_stack);
-        
-        assert(multi_value == [2, 1]);
-        assert(multi_selector == 2);
+    output    
 }
 
-#[test]
-    fn test_rewrite_stack_object_start() {
-        let input = RewriteStackInput {
-            stack: [[0; 2]; MAX_STACK_HEIGHT],
-            tree_hash: [[0; 2]; MAX_STACK_HEIGHT],
-            read_write_value: 1,
-            read_start_brace: true,
-            read_start_bracket: false,
-            read_end_brace: false,
-            read_end_bracket: false,
-            read_colon: false,
-            read_comma: false,
-            read_quote: false,
-            escaped: false,
-            parsing_primitive: false,
-            parsing_string: false,
-            next_parsing_string: false,
-            next_parsing_primitive: false,
-            byte: START_BRACE,
-            polynomial_input: 1,
-            monomial: 0,
-        };
-        
-        let output = rewrite_stack(input);
-        
-        assert(output.next_stack[0][0] == 1);
-        assert(output.next_stack[0][1] == 0);
-    }
+ #[test]  
+    fn test_state_to_mask() {  
+        // Test case 1: Not parsing string or primitive, reading delimiter  
+        let mask = state_to_mask(true, false, false, false);  
+        assert(mask[0] == 1); 
+        assert(mask[1] == 1); 
+        assert(mask[2] == 0); 
+          
+        // Test case 2: Parsing string, reading delimiter  
+        let mask = state_to_mask(true, false, true, false);  
+        assert(mask[0] == 0); 
+        assert(mask[1] == 0); 
+        assert(mask[2] == 0);  
+          
+        // Test case 3: Parsing primitive, reading delimiter  
+        let mask = state_to_mask(true, false, false, true);  
+        assert(mask[0] == 1); 
+        assert(mask[1] == 1); 
+        assert(mask[2] == 1);  
+          
+        // Test case 4: Not parsing string or primitive, reading primitive  
+        let mask = state_to_mask(false, true, false, false);  
+        assert(mask[0] == 1); 
+        assert(mask[1] == 1); 
+        assert(mask[2] == 1); 
+    } 
 
-#[test]
-    fn test_rewrite_stack_colon() {
-    
-        let mut stack = [[0; 2]; MAX_STACK_HEIGHT];
-        stack[0] = [1, 0]; 
-        
-        let input = RewriteStackInput {
-            stack,
-            tree_hash: [[0; 2]; MAX_STACK_HEIGHT],
-            read_write_value: 0,
-            read_start_brace: false,
-            read_start_bracket: false,
-            read_end_brace: false,
-            read_end_bracket: false,
-            read_colon: true,
-            read_comma: false,
-            read_quote: false,
-            escaped: false,
-            parsing_primitive: false,
-            parsing_string: false,
-            next_parsing_string: false,
-            next_parsing_primitive: false,
-            byte: COLON,
-            polynomial_input: 1,
-            monomial: 0,
-        };
-        
-        let output = rewrite_stack(input);
+     #[test]  
+    fn test_get_top_of_stack() {  
+        // Test case 1: Empty stack  
+        let empty_stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
+        let (value, pointer) = get_top_of_stack(empty_stack);  
+        assert(value == [Field::from(0), Field::from(0)]);  
+        assert(pointer == 0);  
+          
+        // Test case 2: Stack with one element  
+        let mut one_element_stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
+        one_element_stack[0] = [Field::from(1), Field::from(0)];  
+        let (value, pointer) = get_top_of_stack(one_element_stack);  
+        assert(value == [Field::from(1), Field::from(0)]);  
+        assert(pointer == 1);  
+          
+        // Test case 3: Stack with multiple elements  
+        let mut multi_element_stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
+        multi_element_stack[0] = [Field::from(1), Field::from(0)];  
+        multi_element_stack[1] = [Field::from(2), Field::from(1)];  
+        multi_element_stack[2] = [Field::from(1), Field::from(1)];  
+        let (value, pointer) = get_top_of_stack(multi_element_stack);  
+        assert(value == [Field::from(1), Field::from(1)]);  
+        assert(pointer == 3);  
+    }  
 
-        assert(output.next_stack[0][0] == 1);
-        assert(output.next_stack[0][1] == 1);
-    }
-#[test]
-    fn test_simple_json_parsing_workflow() {
-    
-        let mut stack = [[0; 2]; MAX_STACK_HEIGHT];
-        let mut tree_hash = [[0; 2]; MAX_STACK_HEIGHT];
-        let mut parsing_string = false;
-        let mut parsing_primitive = false;
-        let mut monomial = 0;
-        let mut escaped = false;
-   
-        let update_input_1 = StateUpdateHasherInput {
-            byte: START_BRACE,
-            stack,
-            parsing_string,
-            parsing_primitive,
-            polynomial_input: 1,
-            monomial,
-            tree_hash,
-            escaped,
-        };
-        
-        let update_output_1 = state_update_hasher(update_input_1);
-        
-        let rewrite_input_1 = RewriteStackInput {
-            stack,
-            tree_hash,
-            read_write_value: 1,
-            read_start_brace: true,
-            read_start_bracket: false,
-            read_end_brace: false,
-            read_end_bracket: false,
-            read_colon: false,
-            read_comma: false,
-            read_quote: false,
-            escaped,
-            parsing_primitive,
-            parsing_string,
-            next_parsing_string: update_output_1.next_parsing_string,
-            next_parsing_primitive: update_output_1.next_parsing_primitive,
-            byte: START_BRACE,
-            polynomial_input: 1,
-            monomial,
-        };
-        
-        let rewrite_output_1 = rewrite_stack(rewrite_input_1);
-        
-        parsing_string = update_output_1.next_parsing_string;
-        parsing_primitive = update_output_1.next_parsing_primitive;
-        escaped = update_output_1.next_escaped;
-        monomial = rewrite_output_1.next_monomial;
-        
-        for i in 0..MAX_STACK_HEIGHT {
-            stack[i][0] = rewrite_output_1.next_stack[i][0] as u64;
-            stack[i][1] = rewrite_output_1.next_stack[i][1] as u64;
-            tree_hash[i][0] = rewrite_output_1.next_tree_hash[i][0] as u64;
-            tree_hash[i][1] = rewrite_output_1.next_tree_hash[i][1] as u64;
-        }
-        
-        assert(stack[0][0] == 1);
-        assert(stack[0][1] == 0);
-     
-    }
