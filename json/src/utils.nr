@@ -166,10 +166,9 @@ pub fn create_nested_object_key_sequence(
     // Create tree hash for the second key
     let key2_hash = create_value_digest(key2_bytes, ciphertext_digest);
 
-    // Compress the tree hash
     let mut result = obj_digest;
     let mut monomial = ciphertext_digest.pow_32(3);
-
+   
     // Add stack entry with appropriate monomials
     result += stack_entry[0] * monomial;
     monomial *= ciphertext_digest;

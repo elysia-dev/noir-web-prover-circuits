@@ -198,11 +198,12 @@ pub fn extract(
 
     assert((1 - is_value_digest_zero) * (is_new_state_digest_zero - is_step_out_zero_matched) == 0);
 
-    println(step_out[0]);
-    println(value_digest);
-    println(total_matches);
-    println(sequence_digest);
-    println(data_digest);
+    let mut temp = step_out[0];
+    println(f"step_out[0]: {temp}");
+    println(f"value_digest: {value_digest}");
+    println(f"total_matches: {total_matches}");
+    println(f"sequence_digest: {sequence_digest}");
+    println(f"data_digest: {data_digest}");
 
     step_out
 }
