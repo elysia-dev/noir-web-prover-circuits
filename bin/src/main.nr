@@ -1,4 +1,4 @@
-use http::parse;
+// use http::parse;
 
 /*
 pub fn main(data: str<1024>) {
@@ -6,23 +6,23 @@ pub fn main(data: str<1024>) {
 }
 */
 
-use chacha20::nivc::{NivcState};
+use chacha20::setup::{SetupState};
 use nivc::{FoldingVariables};
 
 global PUBLIC_IO_VARS: u32 = 11;
-global DATA_BYTES: u32 = 64;
+global DATA_BYTES: u32 = 512;
 
 fn main(
     folding_variables: pub FoldingVariables<PUBLIC_IO_VARS>,
     key: [u32; 8],
     nonce: [u32; 3],
     counter: u32,
-    plaintext: [u8; DATA_BYTES],
+    plaintext: [Field; DATA_BYTES],
     ciphertext_digest: Field,
     next_pc: Field,
 ) -> pub FoldingVariables<PUBLIC_IO_VARS> {
-    let nivc = NivcState { key, nonce, counter, plaintext, ciphertext_digest };
-    let step_out: [Field; PUBLIC_IO_VARS] = nivc.verify(folding_variables.registers);
+    let setup = SetupState { key, nonce, counter, plaintext, ciphertext_digest };
+    let step_out: [Field; PUBLIC_IO_VARS] = setup.verify(folding_variables.registers);
 
     FoldingVariables {
         registers: step_out,
