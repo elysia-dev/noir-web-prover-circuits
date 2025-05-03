@@ -4,8 +4,8 @@ use crate::language::{
 };
 use crate::machine::{rewrite_stack, RewriteStackInput, state_update_hasher, StateUpdateHasherInput};
 use crate::utils::{
-    create_nested_object_key_sequence, create_value_digest, is_equal, polynomial_digest,
-    polynomial_digest_with_counter,
+    compress_tree_hash, create_nested_object_key_sequence_with_tree_hasher, create_value_digest,
+    is_equal, polynomial_digest, polynomial_digest_with_counter,
 };
 
 // It processes JSON data byte-by-byte to find and extract specific values
@@ -107,13 +107,7 @@ pub fn extract(
         prev_escaped = update_output.next_escaped;
 
         // Calculate state digest
-        let mut accumulator = Field::from(0);
-        for i in 0..MAX_STACK_HEIGHT {
-            accumulator += prev_stack[i][0] * monomials[3 * i];
-            accumulator += prev_stack[i][1] * monomials[3 * i + 1];
-            accumulator += prev_tree_hash[i][0] * monomials[3 * i + 2];
-        }
-        state_digest[data_idx] = accumulator;
+        state_digest[data_idx] = compress_tree_hash(ciphertext_digest, prev_stack, prev_tree_hash);
 
         // Check if sequence matches
         sequence_is_matched[data_idx] = if state_digest[data_idx] == sequence_digest {
@@ -121,6 +115,10 @@ pub fn extract(
         } else {
             0
         };
+
+        let mut tmp1 = sequence_is_matched[data_idx];
+        //println(f"sequence_digest: {sequence_digest}");
+        println(f"sequence_matched: {tmp1}");
 
         // Check if value matches
         let mut value_digest_in_stack = Field::from(0);
@@ -133,9 +131,15 @@ pub fn extract(
             0
         };
 
+        // println(f"value_digest_in_stack: {value_digest_in_stack}");
+        // println(f"value_digest: {value_digest}");
+        let mut tmp2 = value_is_matched[data_idx];
+        println(f"value_matched: {tmp2}");
+
         // Update total matches
         let matched = sequence_is_matched[data_idx] * value_is_matched[data_idx];
         total_matches += matched;
+        println(f"total_matches updated: {total_matches}");
     }
 
     // Create new state from final parser state
@@ -262,8 +266,11 @@ fn test_extract_nested_object() {
     let inner_key_bytes = [105, 110, 110, 101, 114]; // "inner"
 
     // Use nested object key sequence helper
-    let sequence_digest =
-        create_nested_object_key_sequence(outer_key_bytes, inner_key_bytes, ciphertext_digest);
+    let sequence_digest = create_nested_object_key_sequence_with_tree_hasher(
+        outer_key_bytes,
+        inner_key_bytes,
+        ciphertext_digest,
+    );
 
     // Value digest for "value"
     let value_bytes = [118, 97, 108, 117, 101]; // "value"

@@ -131,7 +131,6 @@ pub fn create_value_digest(value_bytes: [u8], ciphertext_digest: Field) -> Field
 pub fn create_object_key_sequence(key_bytes: [u8], ciphertext_digest: Field) -> Field {
     // Create stack entry for object key [1, 0]
     let stack_entry: [Field; 2] = [1, 0];
-
     // Create tree hash for the key
     let key_hash = create_value_digest(key_bytes, ciphertext_digest);
 
@@ -152,33 +151,37 @@ pub fn create_object_key_sequence(key_bytes: [u8], ciphertext_digest: Field) -> 
 }
 
 // Create a sequence digest for a nested object path (e.g., obj.nested)
-pub fn create_nested_object_key_sequence(
+pub fn create_nested_object_key_sequence_with_tree_hasher(
     key1_bytes: [u8],
     key2_bytes: [u8],
     ciphertext_digest: Field,
 ) -> Field {
-    // First create object entry for first key
-    let obj_digest = create_object_key_sequence(key1_bytes, ciphertext_digest);
+    // Convert key bytes to JsonMaskType format
+    let mut key1_value: [Field; 32] = [0; 32];
+    let mut key2_value: [Field; 32] = [0; 32];
 
-    // Then create object entry for second key, with first key as parent
-    let stack_entry: [Field; 2] = [1, 0];
+    for i in 0..key1_bytes.len() {
+        key1_value[i] = Field::from(key1_bytes[i]);
+    }
 
-    // Create tree hash for the second key
-    let key2_hash = create_value_digest(key2_bytes, ciphertext_digest);
+    for i in 0..key2_bytes.len() {
+        key2_value[i] = Field::from(key2_bytes[i]);
+    }
 
-    let mut result = obj_digest;
-    let mut monomial = ciphertext_digest.pow_32(3);
-   
-    // Add stack entry with appropriate monomials
-    result += stack_entry[0] * monomial;
-    monomial *= ciphertext_digest;
-    result += stack_entry[1] * monomial;
-    monomial *= ciphertext_digest;
+    // Create JsonMaskType objects
+    let key1 = JsonMaskType { is_array_index: false, value: key1_value, array_index: 0 };
 
-    // Add key hash
-    result += key2_hash * monomial;
+    let key2 = JsonMaskType { is_array_index: false, value: key2_value, array_index: 0 };
 
-    result
+    // Create key sequence
+    let key_sequence = [key1, key2];
+
+    // Use json_tree_hasher to generate stack and tree hash
+    let (stack, tree_hashes) =
+        json_tree_hasher(ciphertext_digest, key_sequence, MAX_STACK_HEIGHT as u32);
+
+    // Use compress_tree_hash to get the sequence digest
+    compress_tree_hash(ciphertext_digest, stack, tree_hashes)
 }
 
 pub fn create_array_index_sequence(index: u64, ciphertext_digest: Field) -> Field {
