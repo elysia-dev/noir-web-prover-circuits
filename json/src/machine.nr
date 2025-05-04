@@ -910,7 +910,6 @@ fn test_rewrite_stack_push_pop() {
       
     // // Should pop the stack  
     assert(output_pop.next_stack[0][0] == Field::from(1)); 
-    //TODO : Fix this 
     assert(output_pop.next_stack[0][1] == Field::from(0));  
     assert(output_pop.next_stack[1][0] == Field::from(0)); 
 }  
