@@ -370,13 +370,13 @@ pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOu
 
     // Define command instructions
     let start_brace_instruction = [1, 0, 0];
-    let end_brace_instruction = [2, 0, 0];
-    let start_bracket_instruction = [3, 0, 0];
-    let end_bracket_instruction = [4, 0, 0];
-    let colon_instruction = [5, 0, 0];
-    let comma_instruction = [6, 0, 0];
-    let number_instruction = [0, 0, 1];
+    let end_brace_instruction = [-1, 0, -1];
+    let start_bracket_instruction = [2, 0, 0];
+    let end_bracket_instruction = [-2, 0, -1];
     let quote_instruction = [0, 1, 0];
+    let colon_instruction = [3, 0, 0];
+    let comma_instruction = [4, 0, -1];
+    let number_instruction = [256, 0, 1];
 
     // Yield instruction based on what byte we read
     let mut instruction = [0, 0, 0];
