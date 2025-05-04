@@ -452,15 +452,26 @@ pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOu
 
     let rewrite_output = rewrite_stack(rewrite_input);
 
-    let mut output = StateUpdateHasherOutput::default();
-    output.next_stack = rewrite_output.next_stack;
-    output.next_tree_hash = rewrite_output.next_tree_hash;
-    output.next_monomial = rewrite_output.next_monomial;
-    output.next_parsing_string = next_parsing_string;
-    output.next_parsing_primitive = next_parsing_primitive;
-    output.next_escaped = next_escaped;
-
-    output
+    StateUpdateHasherOutput {
+        next_stack: if next_escaped {
+            stack
+        } else {
+            rewrite_output.next_stack
+        },
+        next_tree_hash: if next_escaped {
+            tree_hash
+        } else {
+            rewrite_output.next_tree_hash
+        },
+        next_monomial: if next_escaped {
+            monomial
+        } else {
+            rewrite_output.next_monomial
+        },
+        next_parsing_string,
+        next_parsing_primitive,
+        next_escaped,
+    }
 }
 
 #[test]
