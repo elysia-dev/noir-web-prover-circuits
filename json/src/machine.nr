@@ -851,8 +851,6 @@ fn test_rewrite_stack_array() {
     assert(output.next_stack[0][1] == Field::from(1)); // Index incremented to 1  
 }  
 
-
-//failing 
 #[test]  
 fn test_rewrite_stack_push_pop() {  
     // Test pushing and popping from stack  
