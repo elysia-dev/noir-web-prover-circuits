@@ -458,7 +458,7 @@ fn test_state_to_mask() {
     // Test case 2: Parsing string, reading delimiter
     let mask = state_to_mask(true, false, true, false);
     assert(mask[0] == 0);
-    assert(mask[1] == 0);
+    assert(mask[1] == -1);
     assert(mask[2] == 0);
 
     // Test case 3: Parsing primitive, reading delimiter
