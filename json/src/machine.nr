@@ -119,7 +119,7 @@ fn state_to_mask(
     let mask_rw = 1 - parsing_string_field;
 
     // Mask for parsing_string: toggle between 1 and 0 to flip the bit
-    let mask_ps = 1 - parsing_string_field;
+    let mask_ps = 1 - 2 * parsing_string_field;
 
     // Complex logic for parsing_primitive mask:
 
