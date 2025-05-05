@@ -49,14 +49,14 @@ pub fn polynomial_digest_with_counter(
 /// - `array_index`: the index if this is an array element.
 pub struct JsonMaskType {
     pub is_array_index: bool,
-    pub value: [Field; 32],
+    pub value: [Field; DATA_BYTES],
     pub array_index: u32,
 }
 
+/// returns stack and tree hashes
 pub fn json_tree_hasher<let N: u32>(
     ct_digest: Field,
     key_sequence: [JsonMaskType; N],
-    max_stack_height: u32,
 ) -> ([[Field; 2]; MAX_STACK_HEIGHT], [[Field; 2]; MAX_STACK_HEIGHT]) {
     let mut stack: [[Field; 2]; MAX_STACK_HEIGHT] = [[0; 2]; MAX_STACK_HEIGHT];
     let mut tree_hashes: [[Field; 2]; MAX_STACK_HEIGHT] = [[0; 2]; MAX_STACK_HEIGHT];
@@ -66,19 +66,22 @@ pub fn json_tree_hasher<let N: u32>(
     for i in 0..N {
         let key = key_sequence[i];
 
-        if key.is_array_index {
-            let array_index = key.array_index;
-            let index_hash = Field::from(array_index);
-
-            let curr_hash = index_hash * ct_digest + tree_hashes[0][1];
-            tree_hashes[0][1] = curr_hash;
+        if !key.is_array_index {
+            stack[i] = [1, 1];
+            let mut key_digest = 0;
+            let mut monomial = 1;
+            for i in 0..DATA_BYTES {
+                key_digest += key.value[i] * monomial;
+                monomial *= ct_digest;
+            }
+            tree_hashes[i][0] = key_digest;
         } else {
-            let key_bytes = key.value;
-            let key_digest = polynomial_digest(key_bytes, ct_digest);
-            let curr_hash = key_digest * ct_digest + tree_hashes[0][1];
-            tree_hashes[0][1] = curr_hash;
+            tree_hashes[i][0] = 0;
+            stack[i] = [2 as Field, key.array_index as Field];
         }
 
+        // Fill in empty -> Q. Is this necessary?
+        /*
         if i < N - 1 {
             for j in 1..max_stack_height {
                 stack[j] = stack[j - 1];
@@ -87,28 +90,22 @@ pub fn json_tree_hasher<let N: u32>(
             stack[0] = [1, 0];
             tree_hashes[0] = [0, 0];
         }
+        */
     }
 
     (stack, tree_hashes)
 }
 
 pub fn compress_tree_hash(
-    ct_digest: Field,
     stack: [[Field; 2]; MAX_STACK_HEIGHT],
     tree_hashes: [[Field; 2]; MAX_STACK_HEIGHT],
+    monomials: [Field; 3 * MAX_STACK_HEIGHT],
 ) -> Field {
     let mut accumulator = 0;
-    let mut monomial = 1;
-
     for i in 0..MAX_STACK_HEIGHT {
-        accumulator += stack[i][0] * monomial;
-        monomial *= ct_digest;
-        accumulator += stack[i][1] * monomial;
-        monomial *= ct_digest;
-        accumulator += tree_hashes[i][0] * monomial;
-        monomial *= ct_digest;
-        accumulator += tree_hashes[i][1] * monomial;
-        monomial *= ct_digest;
+        accumulator += stack[i][0] * monomials[3 * i];
+        accumulator += stack[i][1] * monomials[3 * i + 1];
+        accumulator += tree_hashes[i][0] * monomials[3 * i + 2];
     }
 
     accumulator
@@ -150,11 +147,13 @@ pub fn create_object_key_sequence(key_bytes: [u8], ciphertext_digest: Field) -> 
     result
 }
 
+// only for testing
 // Create a sequence digest for a nested object path (e.g., obj.nested)
 pub fn create_nested_object_key_sequence_with_tree_hasher(
     key1_bytes: [u8],
     key2_bytes: [u8],
     ciphertext_digest: Field,
+    monomials: [Field; 3 * MAX_STACK_HEIGHT],
 ) -> Field {
     // Convert key bytes to JsonMaskType format
     let mut key1_value: [Field; 32] = [0; 32];
@@ -178,10 +177,10 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
 
     // Use json_tree_hasher to generate stack and tree hash
     let (stack, tree_hashes) =
-        json_tree_hasher(ciphertext_digest, key_sequence, MAX_STACK_HEIGHT as u32);
+        json_tree_hasher(ciphertext_digest, key_sequence);
 
     // Use compress_tree_hash to get the sequence digest
-    compress_tree_hash(ciphertext_digest, stack, tree_hashes)
+    compress_tree_hash(stack, tree_hashes, monomials)
 }
 
 // pub fn create_array_index_sequence(index: u64, ciphertext_digest: Field) -> Field {

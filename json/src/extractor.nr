@@ -73,41 +73,16 @@ pub fn extract(
         // Update state based on current byte
         let update_output = state_update_hasher(update_input);
 
-        // Create rewrite stack input
-        let rewrite_input = RewriteStackInput {
-            stack: update_output.next_stack,
-            tree_hash: update_output.next_tree_hash,
-            read_write_value: Field::from(1),
-            read_start_brace: is_equal(data[data_idx], START_BRACE),
-            read_start_bracket: is_equal(data[data_idx], START_BRACKET),
-            read_end_brace: is_equal(data[data_idx], END_BRACE),
-            read_end_bracket: is_equal(data[data_idx], END_BRACKET),
-            read_colon: is_equal(data[data_idx], COLON),
-            read_comma: is_equal(data[data_idx], COMMA),
-            read_quote: is_equal(data[data_idx], QUOTE),
-            escaped: update_input.escaped,
-            parsing_primitive: update_input.parsing_primitive,
-            parsing_string: update_input.parsing_string,
-            next_parsing_string: update_output.next_parsing_string,
-            next_parsing_primitive: update_output.next_parsing_primitive,
-            byte: data[data_idx],
-            polynomial_input: ciphertext_digest,
-            monomial: update_input.monomial,
-        };
-
-        // Rewrite stack based on current state
-        let rewrite_output = rewrite_stack(rewrite_input);
-
         // Update state for next iteration
-        prev_stack = rewrite_output.next_stack;
-        prev_tree_hash = rewrite_output.next_tree_hash;
-        prev_monomial = rewrite_output.next_monomial;
+        prev_stack = update_output.next_stack;
+        prev_tree_hash = update_output.next_tree_hash;
+        prev_monomial = update_output.next_monomial;
         prev_parsing_string = update_output.next_parsing_string;
         prev_parsing_primitive = update_output.next_parsing_primitive;
         prev_escaped = update_output.next_escaped;
 
         // Calculate state digest
-        state_digest[data_idx] = compress_tree_hash(ciphertext_digest, prev_stack, prev_tree_hash);
+        state_digest[data_idx] = compress_tree_hash(prev_stack, prev_tree_hash, monomials);
 
         // Check if sequence matches
         sequence_is_matched[data_idx] = if state_digest[data_idx] == sequence_digest {
@@ -260,6 +235,11 @@ fn test_extract_nested_object() {
     }
 
     let ciphertext_digest = 1;
+    let mut monomials: [Field; 3 * MAX_STACK_HEIGHT] = [0; 3 * MAX_STACK_HEIGHT];
+    monomials[0] = 1;
+    for i in 1..3 * MAX_STACK_HEIGHT {
+        monomials[i] = monomials[i - 1] * ciphertext_digest;
+    }
 
     // Create key sequence for "outer.inner" path
     let outer_key_bytes = [111, 117, 116, 101, 114]; // "outer"
@@ -270,6 +250,7 @@ fn test_extract_nested_object() {
         outer_key_bytes,
         inner_key_bytes,
         ciphertext_digest,
+        monomials,
     );
 
     // Value digest for "value"

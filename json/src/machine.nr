@@ -233,7 +233,7 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
     let is_object_value = current_value == [Field::from(1), Field::from(1)];
     let is_array = current_value[0] == Field::from(2);
 
-    let not_to_hash = (parsing_string & next_parsing_string) | next_parsing_primitive;
+    let not_to_hash = !((parsing_string & next_parsing_string) | next_parsing_primitive);
     let hash_0 = Field::from(is_object_key as u64) * state_hash[0][MAX_STACK_HEIGHT];
     let hash_1 = Field::from((is_object_value | is_array) as u64) * state_hash[1][MAX_STACK_HEIGHT];
 
@@ -247,12 +247,16 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
     let option_hash = hash_0 + hash_1 + (Field::from(byte as u64) * next_monomial);
 
     // Calculate next state hash using field arithmetic for precision
-    let next_state_hash_0 = Field::from(not_to_hash as u64)
-        * (state_hash[0][MAX_STACK_HEIGHT] - option_hash)
-        + option_hash;
-    let next_state_hash_1 = Field::from(not_to_hash as u64)
-        * (state_hash[1][MAX_STACK_HEIGHT] - option_hash)
-        + option_hash;
+    let next_state_hash_0 = if not_to_hash {
+        state_hash[0][MAX_STACK_HEIGHT]
+    } else {
+        option_hash
+    };
+    let next_state_hash_1 = if not_to_hash {
+        state_hash[1][MAX_STACK_HEIGHT]
+    } else {
+        option_hash
+    };
 
     // Modify the stack and tree hash
     let stack_change_value = [
@@ -278,8 +282,8 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
     let to_clear_first = !not_to_clear_first;
 
     let tree_hash_change_value = [
-        Field::from(!to_clear_zeroth as u64) * next_state_hash_0,
-        Field::from(!to_clear_first as u64) * next_state_hash_1,
+        Field::from((!to_clear_zeroth) as u64) * next_state_hash_0,
+        Field::from((!to_clear_first) as u64) * next_state_hash_1,
     ];
 
     let mut to_update_hash = [[false; 2]; MAX_STACK_HEIGHT];
@@ -297,7 +301,7 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
         next_stack[i][0] = stack[i][0] + (Field::from(indicator[i] as u64) * stack_change_value[0]);
         let second_index_clear =
             stack[i][1] * Field::from((read_end_brace | read_end_bracket) as u64);
-        
+
         next_stack[i][1] = stack[i][1]
             + (Field::from(indicator[i] as u64) * (stack_change_value[1] - second_index_clear));
 
