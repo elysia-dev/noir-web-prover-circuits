@@ -184,41 +184,41 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
     compress_tree_hash(ciphertext_digest, stack, tree_hashes)
 }
 
-pub fn create_array_index_sequence(index: u64, ciphertext_digest: Field) -> Field {
-    // Create stack entry for array index [2, index]
-    let stack_entry: [Field; 2] = [2, index as Field];
+// pub fn create_array_index_sequence(index: u64, ciphertext_digest: Field) -> Field {
+//     // Create stack entry for array index [2, index]
+//     let stack_entry: [Field; 2] = [2, index as Field];
 
-    // Compress the tree hash
-    let mut result = 0;
-    let mut monomial = 1;
+//     // Compress the tree hash
+//     let mut result = 0;
+//     let mut monomial = 1;
 
-    // Add stack entry with appropriate monomials
-    result += stack_entry[0] * monomial;
-    monomial *= ciphertext_digest;
-    result += stack_entry[1] * monomial;
+//     // Add stack entry with appropriate monomials
+//     result += stack_entry[0] * monomial;
+//     monomial *= ciphertext_digest;
+//     result += stack_entry[1] * monomial;
 
-    result
-}
+//     result
+// }
 
-pub fn create_object_array_sequence(
-    key_bytes: [u8],
-    index: u64,
-    ciphertext_digest: Field,
-) -> Field {
-    // First create object entry for the key
-    let obj_digest = create_object_key_sequence(key_bytes, ciphertext_digest);
+// pub fn create_object_array_sequence(
+//     key_bytes: [u8],
+//     index: u64,
+//     ciphertext_digest: Field,
+// ) -> Field {
+//     // First create object entry for the key
+//     let obj_digest = create_object_key_sequence(key_bytes, ciphertext_digest);
 
-    // Then create array entry for the index
-    let stack_entry: [Field; 2] = [2, index as Field];
+//     // Then create array entry for the index
+//     let stack_entry: [Field; 2] = [2, index as Field];
 
-    // Compress the tree hash
-    let mut result = obj_digest;
-    let mut monomial = ciphertext_digest.pow_32(3); // Skip 3 monomials used by key
+//     // Compress the tree hash
+//     let mut result = obj_digest;
+//     let mut monomial = ciphertext_digest.pow_32(3); // Skip 3 monomials used by key
 
-    // Add stack entry with appropriate monomials
-    result += stack_entry[0] * monomial;
-    monomial *= ciphertext_digest;
-    result += stack_entry[1] * monomial;
+//     // Add stack entry with appropriate monomials
+//     result += stack_entry[0] * monomial;
+//     monomial *= ciphertext_digest;
+//     result += stack_entry[1] * monomial;
 
-    result
-}
+//     result
+// }

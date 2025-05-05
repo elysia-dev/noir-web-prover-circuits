@@ -314,16 +314,18 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
         }
     }
 
-    if read_end_brace | read_end_bracket {
-        let top_index = (pointer as u64 - 1) as u32;
-        if top_index < MAX_STACK_HEIGHT {
-            next_stack[top_index] = [Field::from(0), Field::from(0)];
-            if (top_index > 0) & (next_stack[top_index - 1][0] == Field::from(1)) {
-                next_stack[top_index - 1][1] = Field::from(0);
-            }
-        }
+    if read_end_brace | read_end_bracket {  
+        let top_index = (pointer as u64 - 1) as u32;  
+        if top_index < MAX_STACK_HEIGHT {  
+            next_stack[top_index] = [Field::from(0), Field::from(0)];  
+ 
+            if top_index > 0 {  
+                if next_stack[top_index - 1][0] == Field::from(1) {  
+                    next_stack[top_index - 1][1] = Field::from(0);  
+                }  
+            }  
+        }  
     }
-
     RewriteStackOutput { next_monomial, next_stack, next_tree_hash }
 }
 
@@ -452,26 +454,15 @@ pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOu
 
     let rewrite_output = rewrite_stack(rewrite_input);
 
-    StateUpdateHasherOutput {
-        next_stack: if next_escaped {
-            stack
-        } else {
-            rewrite_output.next_stack
-        },
-        next_tree_hash: if next_escaped {
-            tree_hash
-        } else {
-            rewrite_output.next_tree_hash
-        },
-        next_monomial: if next_escaped {
-            monomial
-        } else {
-            rewrite_output.next_monomial
-        },
-        next_parsing_string,
-        next_parsing_primitive,
-        next_escaped,
-    }
+    let mut output = StateUpdateHasherOutput::default();
+    output.next_stack = rewrite_output.next_stack;
+    output.next_tree_hash = rewrite_output.next_tree_hash;
+    output.next_monomial = rewrite_output.next_monomial;
+    output.next_parsing_string = next_parsing_string;
+    output.next_parsing_primitive = next_parsing_primitive;
+    output.next_escaped = next_escaped;
+
+    output
 }
 
 #[test]
@@ -851,6 +842,8 @@ fn test_rewrite_stack_array() {
     assert(output.next_stack[0][1] == Field::from(1)); // Index incremented to 1  
 }  
 
+
+//failing 
 #[test]  
 fn test_rewrite_stack_push_pop() {  
     // Test pushing and popping from stack  
