@@ -284,8 +284,8 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
 
     let mut to_update_hash = [[false; 2]; MAX_STACK_HEIGHT];
     for i in 0..MAX_STACK_HEIGHT {
-        to_update_hash[0][i][0] = tree_hash_indicator[i] & to_change_zeroth;
-        to_update_hash[0][i][1] = tree_hash_indicator[i] & to_change_first;
+        to_update_hash[i][0] = tree_hash_indicator[i] & to_change_zeroth;
+        to_update_hash[i][1] = tree_hash_indicator[i] & to_change_first;
     }
 
     // Prepare output
@@ -301,13 +301,13 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
         next_stack[i][1] = stack[i][1]
             + (Field::from(indicator[i] as u64) * (stack_change_value[1] - second_index_clear));
 
-        if to_update_hash[0][i][0] {
+        if to_update_hash[i][0] {
             next_tree_hash[i][0] = tree_hash_change_value[0];
         } else {
             next_tree_hash[i][0] = tree_hash[i][0];
         }
 
-        if to_update_hash[0][i][1] {
+        if to_update_hash[i][1] {
             next_tree_hash[i][1] = tree_hash_change_value[1];
         } else {
             next_tree_hash[i][1] = tree_hash[i][1];
