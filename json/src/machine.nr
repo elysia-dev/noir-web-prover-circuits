@@ -282,7 +282,7 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
         Field::from(!to_clear_first as u64) * next_state_hash_1,
     ];
 
-    let mut to_update_hash = [[[false; 2]; MAX_STACK_HEIGHT]; 1];
+    let mut to_update_hash = [[false; 2]; MAX_STACK_HEIGHT];
     for i in 0..MAX_STACK_HEIGHT {
         to_update_hash[0][i][0] = tree_hash_indicator[i] & to_change_zeroth;
         to_update_hash[0][i][1] = tree_hash_indicator[i] & to_change_first;
