@@ -156,7 +156,7 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
     }
 
     // Create JsonMaskType objects
-    let key1 = JsonMaskType { is_array_index: false, value: key1_value, array_index: 0, };
+    let key1 = JsonMaskType { is_array_index: false, value: key1_value, array_index: 0 };
 
     let key2 = JsonMaskType { is_array_index: false, value: key2_value, array_index: 0 };
 
@@ -169,4 +169,3 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
     // Use compress_tree_hash to get the sequence digest
     compress_tree_hash(stack, tree_hashes, monomials)
 }
-
