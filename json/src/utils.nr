@@ -79,18 +79,6 @@ pub fn json_tree_hasher<let N: u32>(
             tree_hashes[i][0] = 0;
             stack[i] = [2 as Field, key.array_index as Field];
         }
-
-        // Fill in empty -> Q. Is this necessary?
-        /*
-        if i < N - 1 {
-            for j in 1..max_stack_height {
-                stack[j] = stack[j - 1];
-                tree_hashes[j] = tree_hashes[j - 1];
-            }
-            stack[0] = [1, 0];
-            tree_hashes[0] = [0, 0];
-        }
-        */
     }
 
     (stack, tree_hashes)
@@ -176,8 +164,7 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
     let key_sequence = [key1, key2];
 
     // Use json_tree_hasher to generate stack and tree hash
-    let (stack, tree_hashes) =
-        json_tree_hasher(ciphertext_digest, key_sequence);
+    let (stack, tree_hashes) = json_tree_hasher(ciphertext_digest, key_sequence);
 
     // Use compress_tree_hash to get the sequence digest
     compress_tree_hash(stack, tree_hashes, monomials)

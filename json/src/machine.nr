@@ -318,17 +318,17 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
         }
     }
 
-    if read_end_brace | read_end_bracket {  
-        let top_index = (pointer as u64 - 1) as u32;  
-        if top_index < MAX_STACK_HEIGHT {  
-            next_stack[top_index] = [Field::from(0), Field::from(0)];  
- 
-            if top_index > 0 {  
-                if next_stack[top_index - 1][0] == Field::from(1) {  
-                    next_stack[top_index - 1][1] = Field::from(0);  
-                }  
-            }  
-        }  
+    if read_end_brace | read_end_bracket {
+        let top_index = (pointer as u64 - 1) as u32;
+        if top_index < MAX_STACK_HEIGHT {
+            next_stack[top_index] = [Field::from(0), Field::from(0)];
+
+            if top_index > 0 {
+                if next_stack[top_index - 1][0] == Field::from(1) {
+                    next_stack[top_index - 1][1] = Field::from(0);
+                }
+            }
+        }
     }
     RewriteStackOutput { next_monomial, next_stack, next_tree_hash }
 }
@@ -427,10 +427,10 @@ pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOu
         parsing_string ^ (mul_mask_and_out[1] != Field::from(0))
     };
 
-    let next_parsing_primitive = if read_delimiter & parsing_primitive {  
-        false  
-    } else {  
-        parsing_primitive | (mul_mask_and_out[2] != Field::from(0))  
+    let next_parsing_primitive = if read_delimiter & parsing_primitive {
+        false
+    } else {
+        parsing_primitive | (mul_mask_and_out[2] != Field::from(0))
     };
 
     let next_escaped = read_escape & !escaped;
@@ -521,402 +521,399 @@ fn test_get_top_of_stack() {
     assert(pointer == 3);
 }
 
-#[test]  
-fn test_state_update_hasher_quote() {  
-    // Test state update with a quote character to toggle string parsing  
-    let byte = QUOTE;  
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let parsing_string = false; // Not parsing string initially  
-    let parsing_primitive = false;  
-    let polynomial_input = Field::from(1);  
-    let monomial = Field::from(0);  
-    let escaped = false;  
-  
-    let input = StateUpdateHasherInput {  
-        byte,  
-        stack,  
-        tree_hash,  
-        parsing_string,  
-        parsing_primitive,  
-        polynomial_input,  
-        monomial,  
-        escaped,  
-    };  
-  
-    let output = state_update_hasher(input);  
-      
-    // Quote should toggle string parsing state  
-    assert(output.next_parsing_string); // Now parsing string  
-    assert(!output.next_parsing_primitive);  
-    assert(!output.next_escaped);  
-      
-    // Test with already parsing string  
-    let input2 = StateUpdateHasherInput {  
-        byte,  
-        stack,  
-        tree_hash,  
-        parsing_string: true, // Already parsing string  
-        parsing_primitive: false,  
-        polynomial_input,  
-        monomial,  
-        escaped: false,  
-    };  
-      
-    let output2 = state_update_hasher(input2);  
-      
-    // Quote should toggle string parsing state off  
-    assert(!output2.next_parsing_string); // No longer parsing string  
-    assert(!output2.next_parsing_primitive);  
-    assert(!output2.next_escaped);  
-}  
+#[test]
+fn test_state_update_hasher_quote() {
+    // Test state update with a quote character to toggle string parsing
+    let byte = QUOTE;
+    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let parsing_string = false; // Not parsing string initially
+    let parsing_primitive = false;
+    let polynomial_input = Field::from(1);
+    let monomial = Field::from(0);
+    let escaped = false;
 
+    let input = StateUpdateHasherInput {
+        byte,
+        stack,
+        tree_hash,
+        parsing_string,
+        parsing_primitive,
+        polynomial_input,
+        monomial,
+        escaped,
+    };
 
-#[test]  
-fn test_state_update_hasher_basic() {  
-    // Test basic state update with a simple character (not a special character)  
-    let byte = 1;  
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let parsing_string = false;  
-    let parsing_primitive = false;  
-    let polynomial_input = Field::from(1);  
-    let monomial = Field::from(0);  
-    let escaped = false;  
-  
-    let input = StateUpdateHasherInput {  
-        byte,  
-        stack,  
-        tree_hash,  
-        parsing_string,  
-        parsing_primitive,  
-        polynomial_input,  
-        monomial,  
-        escaped,  
-    };  
-  
-    let output = state_update_hasher(input);  
-      
-    // Regular character should not change parsing state  
-    assert(!output.next_parsing_string);  
-    assert(!output.next_parsing_primitive);  
-    assert(!output.next_escaped);  
-}  
+    let output = state_update_hasher(input);
 
-#[test]  
-fn test_state_update_hasher_escape() {  
-    // Test state update with escape character  
-    let byte = ESCAPE;  
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let parsing_string = true; // Parsing string  
-    let parsing_primitive = false;  
-    let polynomial_input = Field::from(1);  
-    let monomial = Field::from(0);  
-    let escaped = false;  
-  
-    let input = StateUpdateHasherInput {  
-        byte,  
-        stack,  
-        tree_hash,  
-        parsing_string,  
-        parsing_primitive,  
-        polynomial_input,  
-        monomial,  
-        escaped,  
-    };  
-  
-    let output = state_update_hasher(input);  
-      
-    // Escape should set escaped flag  
-    assert(output.next_parsing_string); // Still parsing string  
-    assert(!output.next_parsing_primitive);  
-    assert(output.next_escaped); // Escaped flag set  
-      
-    // Test with already escaped character  
-    let input2 = StateUpdateHasherInput {  
-        byte: QUOTE, // Escaped quote  
-        stack,  
-        tree_hash,  
-        parsing_string: true,  
-        parsing_primitive: false,  
-        polynomial_input,  
-        monomial,  
-        escaped: true, // Already escaped  
-    };  
-      
-    let output2 = state_update_hasher(input2);  
-      
-    // Escaped quote should not toggle string parsing  
-    assert(output2.next_parsing_string); // Still parsing string  
-    assert(!output2.next_parsing_primitive);  
-    assert(!output2.next_escaped); // Escaped flag reset  
-}  
+    // Quote should toggle string parsing state
+    assert(output.next_parsing_string); // Now parsing string
+    assert(!output.next_parsing_primitive);
+    assert(!output.next_escaped);
 
-#[test]  
-fn test_state_update_hasher_primitive() {  
-    // Test state update with a primitive character (number)  
-    let byte = ZERO; // '0'  
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let parsing_string = false;  
-    let parsing_primitive = false; // Not parsing primitive initially  
-    let polynomial_input = Field::from(1);  
-    let monomial = Field::from(0);  
-    let escaped = false;  
-  
-    let input = StateUpdateHasherInput {  
-        byte,  
-        stack,  
-        tree_hash,  
-        parsing_string,  
-        parsing_primitive,  
-        polynomial_input,  
-        monomial,  
-        escaped,  
-    };  
-  
-    let output = state_update_hasher(input);  
-      
-    // Number should start primitive parsing  
-    assert(!output.next_parsing_string);  
-    assert(output.next_parsing_primitive); // Now parsing primitive  
-    assert(!output.next_escaped);  
-      
-    // Test with already parsing primitive  
-    let input2 = StateUpdateHasherInput {  
-        byte: ONE, // '1'  
-        stack,  
-        tree_hash,  
-        parsing_string: false,  
-        parsing_primitive: true, // Already parsing primitive  
-        polynomial_input,  
-        monomial,  
-        escaped: false,  
-    };  
-      
-    let output2 = state_update_hasher(input2);  
-      
-    // Another number should continue primitive parsing  
-    assert(!output2.next_parsing_string);  
-    assert(output2.next_parsing_primitive); // Still parsing primitive  
-    assert(!output2.next_escaped);  
-}  
-  
-#[test] 
-fn test_state_update_hasher_delimiter() {  
-    // Test state update with a delimiter character (comma)  
-    let byte = COMMA;  
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let parsing_string = false;  
-    let parsing_primitive = true; // Parsing primitive  
-    let polynomial_input = Field::from(1);  
-    let monomial = Field::from(0);  
-    let escaped = false;  
-  
-    let input = StateUpdateHasherInput {  
-        byte,  
-        stack,  
-        tree_hash,  
-        parsing_string,  
-        parsing_primitive,  
-        polynomial_input,  
-        monomial,  
-        escaped,  
-    };  
-  
-    let output = state_update_hasher(input);  
-      
-    // Delimiter should end primitive parsing  
-    assert(!output.next_parsing_string);
-    //fix this   
-    //assert(!output.next_parsing_primitive); // No longer parsing primitive  
-    assert(!output.next_escaped);  
+    // Test with already parsing string
+    let input2 = StateUpdateHasherInput {
+        byte,
+        stack,
+        tree_hash,
+        parsing_string: true, // Already parsing string
+        parsing_primitive: false,
+        polynomial_input,
+        monomial,
+        escaped: false,
+    };
+
+    let output2 = state_update_hasher(input2);
+
+    // Quote should toggle string parsing state off
+    assert(!output2.next_parsing_string); // No longer parsing string
+    assert(!output2.next_parsing_primitive);
+    assert(!output2.next_escaped);
 }
 
-#[test]  
-fn test_rewrite_stack_object_key() {  
-    // Test rewriting stack when processing an object key  
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    stack[0] = [Field::from(1), Field::from(0)]; // Object key  
-      
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let polynomial_input = Field::from(1);  
-      
-    let input = RewriteStackInput {  
-        stack,  
-        tree_hash,  
-        read_write_value: Field::from(1),  
-        read_start_brace: false,  
-        read_start_bracket: false,  
-        read_end_brace: false,  
-        read_end_bracket: false,  
-        read_colon: true, // Reading a colon  
-        read_comma: false,  
-        read_quote: false,  
-        escaped: false,  
-        parsing_primitive: false,  
-        parsing_string: false,  
-        next_parsing_string: false,  
-        next_parsing_primitive: false,  
-        byte: COLON,  
-        polynomial_input,  
-        monomial: Field::from(0),  
-    };  
-      
-    let output = rewrite_stack(input);  
-      
-    // Colon should change object key to object value  
-    assert(output.next_stack[0][0] == Field::from(1)); // Still an object  
-    assert(output.next_stack[0][1] == Field::from(1)); // Now a value (was 0)  
-}  
+#[test]
+fn test_state_update_hasher_basic() {
+    // Test basic state update with a simple character (not a special character)
+    let byte = 1;
+    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let parsing_string = false;
+    let parsing_primitive = false;
+    let polynomial_input = Field::from(1);
+    let monomial = Field::from(0);
+    let escaped = false;
 
-#[test]  
-fn test_rewrite_stack_object_value() {  
-    // Test rewriting stack when processing an object value  
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    stack[0] = [Field::from(1), Field::from(1)]; // Object value  
-      
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let polynomial_input = Field::from(1);  
-      
-    let input = RewriteStackInput {  
-        stack,  
-        tree_hash,  
-        read_write_value: Field::from(1),  
-        read_start_brace: false,  
-        read_start_bracket: false,  
-        read_end_brace: false,  
-        read_end_bracket: false,  
-        read_colon: false,  
-        read_comma: true, // Reading a comma  
-        read_quote: false,  
-        escaped: false,  
-        parsing_primitive: false,  
-        parsing_string: false,  
-        next_parsing_string: false,  
-        next_parsing_primitive: false,  
-        byte: COMMA,  
-        polynomial_input,  
-        monomial: Field::from(0),  
-    };  
-      
-    let output = rewrite_stack(input);  
-      
-    // Comma should change object value back to object key  
-    assert(output.next_stack[0][0] == Field::from(1)); // Still an object  
-    assert(output.next_stack[0][1] == Field::from(0)); // Now a key (was 1)  
-}  
+    let input = StateUpdateHasherInput {
+        byte,
+        stack,
+        tree_hash,
+        parsing_string,
+        parsing_primitive,
+        polynomial_input,
+        monomial,
+        escaped,
+    };
 
-#[test]  
-fn test_rewrite_stack_array() {  
-    // Test rewriting stack when processing an array  
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    stack[0] = [Field::from(2), Field::from(0)]; // Array at index 0  
-      
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let polynomial_input = Field::from(1);  
-      
-    let input = RewriteStackInput {  
-        stack,  
-        tree_hash,  
-        read_write_value: Field::from(1),  
-        read_start_brace: false,  
-        read_start_bracket: false,  
-        read_end_brace: false,  
-        read_end_bracket: false,  
-        read_colon: false,  
-        read_comma: true, // Reading a comma  
-        read_quote: false,  
-        escaped: false,  
-        parsing_primitive: false,  
-        parsing_string: false,  
-        next_parsing_string: false,  
-        next_parsing_primitive: false,  
-        byte: COMMA,  
-        polynomial_input,  
-        monomial: Field::from(0),  
-    };  
-      
-    let output = rewrite_stack(input);  
-      
-    // Comma should increment array index  
-    assert(output.next_stack[0][0] == Field::from(2)); // Still an array  
-    assert(output.next_stack[0][1] == Field::from(1)); // Index incremented to 1  
-}  
+    let output = state_update_hasher(input);
 
+    // Regular character should not change parsing state
+    assert(!output.next_parsing_string);
+    assert(!output.next_parsing_primitive);
+    assert(!output.next_escaped);
+}
 
-//failing 
-#[test]  
-fn test_rewrite_stack_push_pop() {  
-    // Test pushing and popping from stack  
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    stack[0] = [Field::from(1), Field::from(0)]; // Object key  
-      
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    let polynomial_input = Field::from(1);  
-      
-    // Test pushing to stack (start brace)  
-    let input_push = RewriteStackInput {  
-        stack,  
-        tree_hash,  
-        read_write_value: Field::from(1),  
-        read_start_brace: true, // Reading a start brace  
-        read_start_bracket: false,  
-        read_end_brace: false,  
-        read_end_bracket: false,  
-        read_colon: false,  
-        read_comma: false,  
-        read_quote: false,  
-        escaped: false,  
-        parsing_primitive: false,  
-        parsing_string: false,  
-        next_parsing_string: false,  
-        next_parsing_primitive: false,  
-        byte: START_BRACE,  
-        polynomial_input,  
-        monomial: Field::from(0),  
-    };  
-      
-    let output_push = rewrite_stack(input_push);  
-      
-    // Should push a new object key onto stack  
-    assert(output_push.next_stack[0][0] == Field::from(1)); 
-    assert(output_push.next_stack[0][1] == Field::from(0)); 
+#[test]
+fn test_state_update_hasher_escape() {
+    // Test state update with escape character
+    let byte = ESCAPE;
+    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let parsing_string = true; // Parsing string
+    let parsing_primitive = false;
+    let polynomial_input = Field::from(1);
+    let monomial = Field::from(0);
+    let escaped = false;
+
+    let input = StateUpdateHasherInput {
+        byte,
+        stack,
+        tree_hash,
+        parsing_string,
+        parsing_primitive,
+        polynomial_input,
+        monomial,
+        escaped,
+    };
+
+    let output = state_update_hasher(input);
+
+    // Escape should set escaped flag
+    assert(output.next_parsing_string); // Still parsing string
+    assert(!output.next_parsing_primitive);
+    assert(output.next_escaped); // Escaped flag set
+
+    // Test with already escaped character
+    let input2 = StateUpdateHasherInput {
+        byte: QUOTE, // Escaped quote
+        stack,
+        tree_hash,
+        parsing_string: true,
+        parsing_primitive: false,
+        polynomial_input,
+        monomial,
+        escaped: true, // Already escaped
+    };
+
+    let output2 = state_update_hasher(input2);
+
+    // Escaped quote should not toggle string parsing
+    assert(output2.next_parsing_string); // Still parsing string
+    assert(!output2.next_parsing_primitive);
+    assert(!output2.next_escaped); // Escaped flag reset
+}
+
+#[test]
+fn test_state_update_hasher_primitive() {
+    // Test state update with a primitive character (number)
+    let byte = ZERO; // '0'
+    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let parsing_string = false;
+    let parsing_primitive = false; // Not parsing primitive initially
+    let polynomial_input = Field::from(1);
+    let monomial = Field::from(0);
+    let escaped = false;
+
+    let input = StateUpdateHasherInput {
+        byte,
+        stack,
+        tree_hash,
+        parsing_string,
+        parsing_primitive,
+        polynomial_input,
+        monomial,
+        escaped,
+    };
+
+    let output = state_update_hasher(input);
+
+    // Number should start primitive parsing
+    assert(!output.next_parsing_string);
+    assert(output.next_parsing_primitive); // Now parsing primitive
+    assert(!output.next_escaped);
+
+    // Test with already parsing primitive
+    let input2 = StateUpdateHasherInput {
+        byte: ONE, // '1'
+        stack,
+        tree_hash,
+        parsing_string: false,
+        parsing_primitive: true, // Already parsing primitive
+        polynomial_input,
+        monomial,
+        escaped: false,
+    };
+
+    let output2 = state_update_hasher(input2);
+
+    // Another number should continue primitive parsing
+    assert(!output2.next_parsing_string);
+    assert(output2.next_parsing_primitive); // Still parsing primitive
+    assert(!output2.next_escaped);
+}
+
+#[test]
+fn test_state_update_hasher_delimiter() {
+    // Test state update with a delimiter character (comma)
+    let byte = COMMA;
+    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let parsing_string = false;
+    let parsing_primitive = true; // Parsing primitive
+    let polynomial_input = Field::from(1);
+    let monomial = Field::from(0);
+    let escaped = false;
+
+    let input = StateUpdateHasherInput {
+        byte,
+        stack,
+        tree_hash,
+        parsing_string,
+        parsing_primitive,
+        polynomial_input,
+        monomial,
+        escaped,
+    };
+
+    let output = state_update_hasher(input);
+
+    // Delimiter should end primitive parsing
+    assert(!output.next_parsing_string);
+    //fix this
+    //assert(!output.next_parsing_primitive); // No longer parsing primitive
+    assert(!output.next_escaped);
+}
+
+#[test]
+fn test_rewrite_stack_object_key() {
+    // Test rewriting stack when processing an object key
+    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    stack[0] = [Field::from(1), Field::from(0)]; // Object key
+
+    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let polynomial_input = Field::from(1);
+
+    let input = RewriteStackInput {
+        stack,
+        tree_hash,
+        read_write_value: Field::from(1),
+        read_start_brace: false,
+        read_start_bracket: false,
+        read_end_brace: false,
+        read_end_bracket: false,
+        read_colon: true, // Reading a colon
+        read_comma: false,
+        read_quote: false,
+        escaped: false,
+        parsing_primitive: false,
+        parsing_string: false,
+        next_parsing_string: false,
+        next_parsing_primitive: false,
+        byte: COLON,
+        polynomial_input,
+        monomial: Field::from(0),
+    };
+
+    let output = rewrite_stack(input);
+
+    // Colon should change object key to object value
+    assert(output.next_stack[0][0] == Field::from(1)); // Still an object
+    assert(output.next_stack[0][1] == Field::from(1)); // Now a value (was 0)
+}
+
+#[test]
+fn test_rewrite_stack_object_value() {
+    // Test rewriting stack when processing an object value
+    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    stack[0] = [Field::from(1), Field::from(1)]; // Object value
+
+    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let polynomial_input = Field::from(1);
+
+    let input = RewriteStackInput {
+        stack,
+        tree_hash,
+        read_write_value: Field::from(1),
+        read_start_brace: false,
+        read_start_bracket: false,
+        read_end_brace: false,
+        read_end_bracket: false,
+        read_colon: false,
+        read_comma: true, // Reading a comma
+        read_quote: false,
+        escaped: false,
+        parsing_primitive: false,
+        parsing_string: false,
+        next_parsing_string: false,
+        next_parsing_primitive: false,
+        byte: COMMA,
+        polynomial_input,
+        monomial: Field::from(0),
+    };
+
+    let output = rewrite_stack(input);
+
+    // Comma should change object value back to object key
+    assert(output.next_stack[0][0] == Field::from(1)); // Still an object
+    assert(output.next_stack[0][1] == Field::from(0)); // Now a key (was 1)
+}
+
+#[test]
+fn test_rewrite_stack_array() {
+    // Test rewriting stack when processing an array
+    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    stack[0] = [Field::from(2), Field::from(0)]; // Array at index 0
+
+    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let polynomial_input = Field::from(1);
+
+    let input = RewriteStackInput {
+        stack,
+        tree_hash,
+        read_write_value: Field::from(1),
+        read_start_brace: false,
+        read_start_bracket: false,
+        read_end_brace: false,
+        read_end_bracket: false,
+        read_colon: false,
+        read_comma: true, // Reading a comma
+        read_quote: false,
+        escaped: false,
+        parsing_primitive: false,
+        parsing_string: false,
+        next_parsing_string: false,
+        next_parsing_primitive: false,
+        byte: COMMA,
+        polynomial_input,
+        monomial: Field::from(0),
+    };
+
+    let output = rewrite_stack(input);
+
+    // Comma should increment array index
+    assert(output.next_stack[0][0] == Field::from(2)); // Still an array
+    assert(output.next_stack[0][1] == Field::from(1)); // Index incremented to 1
+}
+
+//failing
+#[test]
+fn test_rewrite_stack_push_pop() {
+    // Test pushing and popping from stack
+    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    stack[0] = [Field::from(1), Field::from(0)]; // Object key
+
+    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let polynomial_input = Field::from(1);
+
+    // Test pushing to stack (start brace)
+    let input_push = RewriteStackInput {
+        stack,
+        tree_hash,
+        read_write_value: Field::from(1),
+        read_start_brace: true, // Reading a start brace
+        read_start_bracket: false,
+        read_end_brace: false,
+        read_end_bracket: false,
+        read_colon: false,
+        read_comma: false,
+        read_quote: false,
+        escaped: false,
+        parsing_primitive: false,
+        parsing_string: false,
+        next_parsing_string: false,
+        next_parsing_primitive: false,
+        byte: START_BRACE,
+        polynomial_input,
+        monomial: Field::from(0),
+    };
+
+    let output_push = rewrite_stack(input_push);
+
+    // Should push a new object key onto stack
+    assert(output_push.next_stack[0][0] == Field::from(1));
+    assert(output_push.next_stack[0][1] == Field::from(0));
     assert(output_push.next_stack[1][0] == Field::from(1));
-      
-    // Test popping from stack (end brace)  
-    let mut stack2 = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];  
-    stack2[0] = [Field::from(1), Field::from(1)]; 
-    stack2[1] = [Field::from(1), Field::from(0)]; 
-      
-    let input_pop = RewriteStackInput {  
-        stack: stack2,  
-        tree_hash,  
-        read_write_value: Field::from(2), // End brace instruction value  
-        read_start_brace: false,  
-        read_start_bracket: false,  
-        read_end_brace: true, // Reading an end brace  
-        read_end_bracket: false,  
-        read_colon: false,  
-        read_comma: false,  
-        read_quote: false,  
-        escaped: false,  
-        parsing_primitive: false,  
-        parsing_string: false,  
-        next_parsing_string: false,  
-        next_parsing_primitive: false,  
-        byte: END_BRACE,  
-        polynomial_input,  
-        monomial: Field::from(0),  
-    };  
-      
-    let output_pop = rewrite_stack(input_pop);  
-      
-    // // Should pop the stack  
-    assert(output_pop.next_stack[0][0] == Field::from(1)); 
-    assert(output_pop.next_stack[0][1] == Field::from(0));  
-    assert(output_pop.next_stack[1][0] == Field::from(0)); 
-}  
-  
+
+    // Test popping from stack (end brace)
+    let mut stack2 = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    stack2[0] = [Field::from(1), Field::from(1)];
+    stack2[1] = [Field::from(1), Field::from(0)];
+
+    let input_pop = RewriteStackInput {
+        stack: stack2,
+        tree_hash,
+        read_write_value: Field::from(2), // End brace instruction value
+        read_start_brace: false,
+        read_start_bracket: false,
+        read_end_brace: true, // Reading an end brace
+        read_end_bracket: false,
+        read_colon: false,
+        read_comma: false,
+        read_quote: false,
+        escaped: false,
+        parsing_primitive: false,
+        parsing_string: false,
+        next_parsing_string: false,
+        next_parsing_primitive: false,
+        byte: END_BRACE,
+        polynomial_input,
+        monomial: Field::from(0),
+    };
+
+    let output_pop = rewrite_stack(input_pop);
+
+    // // Should pop the stack
+    assert(output_pop.next_stack[0][0] == Field::from(1));
+    assert(output_pop.next_stack[0][1] == Field::from(0));
+    assert(output_pop.next_stack[1][0] == Field::from(0));
+}

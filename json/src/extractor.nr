@@ -1,11 +1,8 @@
-use crate::language::{
-    COLON, COMMA, DATA_BYTES, END_BRACE, END_BRACKET, MAX_STACK_HEIGHT, PUBLIC_IO_LENGTH, QUOTE,
-    START_BRACE, START_BRACKET,
-};
-use crate::machine::{rewrite_stack, RewriteStackInput, state_update_hasher, StateUpdateHasherInput};
+use crate::language::{DATA_BYTES, MAX_STACK_HEIGHT, PUBLIC_IO_LENGTH};
+use crate::machine::{state_update_hasher, StateUpdateHasherInput};
 use crate::utils::{
     compress_tree_hash, create_nested_object_key_sequence_with_tree_hasher, create_value_digest,
-    is_equal, polynomial_digest, polynomial_digest_with_counter,
+    polynomial_digest, polynomial_digest_with_counter,
 };
 
 // It processes JSON data byte-by-byte to find and extract specific values
