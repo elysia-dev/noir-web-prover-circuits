@@ -729,7 +729,6 @@ fn test_state_update_hasher_delimiter() {
 
     // Delimiter should end primitive parsing
     assert(!output.next_parsing_string);
-    //fix this
     //assert(!output.next_parsing_primitive); // No longer parsing primitive
     assert(!output.next_escaped);
 }
@@ -845,7 +844,6 @@ fn test_rewrite_stack_array() {
     assert(output.next_stack[0][1] == Field::from(1)); // Index incremented to 1
 }
 
-//failing
 #[test]
 fn test_rewrite_stack_push_pop() {
     // Test pushing and popping from stack

@@ -144,8 +144,8 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
     monomials: [Field; 3 * MAX_STACK_HEIGHT],
 ) -> Field {
     // Convert key bytes to JsonMaskType format
-    let mut key1_value: [Field; 32] = [0; 32];
-    let mut key2_value: [Field; 32] = [0; 32];
+    let mut key1_value: [Field; 256] = [0; 256];
+    let mut key2_value: [Field; 256] = [0; 256];
 
     for i in 0..key1_bytes.len() {
         key1_value[i] = Field::from(key1_bytes[i]);
@@ -156,7 +156,7 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
     }
 
     // Create JsonMaskType objects
-    let key1 = JsonMaskType { is_array_index: false, value: key1_value, array_index: 0 };
+    let key1 = JsonMaskType { is_array_index: false, value: key1_value, array_index: 0, };
 
     let key2 = JsonMaskType { is_array_index: false, value: key2_value, array_index: 0 };
 
@@ -170,41 +170,3 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
     compress_tree_hash(stack, tree_hashes, monomials)
 }
 
-// pub fn create_array_index_sequence(index: u64, ciphertext_digest: Field) -> Field {
-//     // Create stack entry for array index [2, index]
-//     let stack_entry: [Field; 2] = [2, index as Field];
-
-//     // Compress the tree hash
-//     let mut result = 0;
-//     let mut monomial = 1;
-
-//     // Add stack entry with appropriate monomials
-//     result += stack_entry[0] * monomial;
-//     monomial *= ciphertext_digest;
-//     result += stack_entry[1] * monomial;
-
-//     result
-// }
-
-// pub fn create_object_array_sequence(
-//     key_bytes: [u8],
-//     index: u64,
-//     ciphertext_digest: Field,
-// ) -> Field {
-//     // First create object entry for the key
-//     let obj_digest = create_object_key_sequence(key_bytes, ciphertext_digest);
-
-//     // Then create array entry for the index
-//     let stack_entry: [Field; 2] = [2, index as Field];
-
-//     // Compress the tree hash
-//     let mut result = obj_digest;
-//     let mut monomial = ciphertext_digest.pow_32(3); // Skip 3 monomials used by key
-
-//     // Add stack entry with appropriate monomials
-//     result += stack_entry[0] * monomial;
-//     monomial *= ciphertext_digest;
-//     result += stack_entry[1] * monomial;
-
-//     result
-// }
