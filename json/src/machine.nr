@@ -18,7 +18,7 @@ use super::language::{
     QUOTE, ESCAPE, // String-related characters: ", \
 };
 
-pub struct StateUpdateHasherInput {
+pub struct StateUpdateHasherInput<let MAX_STACK_HEIGHT: u32> {
     pub byte: u8, // Current byte being processed from the JSON input
     pub stack: [[Field; 2]; MAX_STACK_HEIGHT], // Current stack state tracking JSON structure
     // First element indicates type: 1=object, 2=array
@@ -36,7 +36,7 @@ pub struct StateUpdateHasherInput {
 //  - `next_stack[MAX_STACK_HEIGHT][2]`: the stack machine's stack after reading `byte`.
 //  - `next_parsing_string`            : a bool flag that indicates whether the parser is currently parsing a string or not after reading `byte`.
 //  - `next_parsing_primitive`            : a bool flag that indicates whether the parser is currently parsing a number or not after reading `byte`.
-pub struct StateUpdateHasherOutput {
+pub struct StateUpdateHasherOutput<let MAX_STACK_HEIGHT:u32> {
     pub next_stack: [[Field; 2]; MAX_STACK_HEIGHT], // Updated stack state after processing the byte
     pub next_parsing_string: bool, // Updated string parsing flag
     pub next_parsing_primitive: bool, // Updated primitive parsing flag
@@ -47,7 +47,7 @@ pub struct StateUpdateHasherOutput {
 
 /// Default implementation for StateUpdateHasherOutput
 /// Initializes all fields to their default values (zeros and false)
-impl Default for StateUpdateHasherOutput {
+impl<let MAX_STACK_HEIGHT: u32> Default for StateUpdateHasherOutput<MAX_STACK_HEIGHT> {
     fn default() -> Self {
         StateUpdateHasherOutput {
             next_stack: [[0; 2]; MAX_STACK_HEIGHT],
@@ -60,7 +60,7 @@ impl Default for StateUpdateHasherOutput {
     }
 }
 
-pub struct RewriteStackInput {
+pub struct RewriteStackInput<let MAX_STACK_HEIGHT: u32>{
     pub stack: [[Field; 2]; MAX_STACK_HEIGHT], // Current stack state
     pub tree_hash: [[Field; 2]; MAX_STACK_HEIGHT], // Current tree hash state
     pub read_write_value: Field, // Value to write to the stack (from state_to_mask)
@@ -82,7 +82,7 @@ pub struct RewriteStackInput {
 }
 
 /// Contains the updated stack and tree hash after processing a byte.
-pub struct RewriteStackOutput {
+pub struct RewriteStackOutput<let MAX_STACK_HEIGHT:u32> {
     pub next_monomial: Field, // Updated monomial value for polynomial hash
     pub next_stack: [[Field; 2]; MAX_STACK_HEIGHT], // Updated stack state
     pub next_tree_hash: [[Field; 2]; MAX_STACK_HEIGHT], // Updated tree hash state
@@ -141,23 +141,14 @@ fn state_to_mask(
 
 /// Gets the top element of the stack and its position.
 /// The stack represents the current JSON structure being parsed
-pub fn get_top_of_stack(stack: [[Field; 2]; MAX_STACK_HEIGHT]) -> ([Field; 2], Field) {
+pub fn get_top_of_stack<let MAX_STACK_HEIGHT: u32>(stack: [[Field; 2]; MAX_STACK_HEIGHT]) -> ([Field; 2], Field) {
     let mut value: [Field; 2] = [Field::from(0), Field::from(0)];
     let mut selector: Field = Field::from(0);
 
-    // Count non-zero entries and keep track of values
     for i in 0..MAX_STACK_HEIGHT {
-        // Check if stack[i] is not [0,0] (i.e., it's allocated/used)
         let is_allocated = stack[i] != [Field::from(0), Field::from(0)];
-
-        // Increment selector if slot is allocated
         if is_allocated {
             selector += Field::from(1);
-        }
-
-        // Store this value if it's the highest allocated slot
-        // This effectively finds the top of the stack
-        if is_allocated {
             value = stack[i];
         }
     }
@@ -166,9 +157,8 @@ pub fn get_top_of_stack(stack: [[Field; 2]; MAX_STACK_HEIGHT]) -> ([Field; 2], F
 }
 
 /// Rewrites the stack and tree hash based on the current byte and parsing state.
-pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
+pub fn rewrite_stack<let MAX_STACK_HEIGHT: u32>(input: RewriteStackInput<MAX_STACK_HEIGHT>) -> RewriteStackOutput<MAX_STACK_HEIGHT>  {
     // Extract all inputs
-    let stack = input.stack;
     let tree_hash = input.tree_hash;
     let read_write_value = input.read_write_value;
     let read_start_brace = input.read_start_brace;
@@ -192,7 +182,8 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
     let read_comma_and_not_parsing_string = read_comma & !parsing_string;
 
     // Get top of stack
-    let (current_value, pointer) = get_top_of_stack(stack);
+    // let (current_value, pointer) = get_top_of_stack(input.stack);
+    let (current_value, pointer) = get_top_of_stack::<MAX_STACK_HEIGHT>(input.stack);
 
     // Check if value indicates currently in an array
     let in_array = current_value[0] == Field::from(2);
@@ -298,11 +289,11 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
         [[Field::from(0); 2]; MAX_STACK_HEIGHT];
 
     for i in 0..MAX_STACK_HEIGHT {
-        next_stack[i][0] = stack[i][0] + (Field::from(indicator[i] as u64) * stack_change_value[0]);
+        next_stack[i][0] = input.stack[i][0] + (Field::from(indicator[i] as u64) * stack_change_value[0]);
         let second_index_clear =
-            stack[i][1] * Field::from((read_end_brace | read_end_bracket) as u64);
+            input.stack[i][1] * Field::from((read_end_brace | read_end_bracket) as u64);
 
-        next_stack[i][1] = stack[i][1]
+        next_stack[i][1] = input.stack[i][1]
             + (Field::from(indicator[i] as u64) * (stack_change_value[1] - second_index_clear));
 
         if to_update_hash[i][0] {
@@ -334,7 +325,7 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
 }
 
 //Update current status based on input byte and output the next
-pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOutput {
+pub fn state_update_hasher<let MAX_STACK_HEIGHT: u32>(input: StateUpdateHasherInput<MAX_STACK_HEIGHT>) -> StateUpdateHasherOutput<MAX_STACK_HEIGHT> {
     let byte = input.byte;
     let stack = input.stack;
     let parsing_string = input.parsing_string;
