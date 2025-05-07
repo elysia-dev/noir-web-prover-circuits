@@ -2,7 +2,7 @@ use chacha20::setup::{SetupState};
 use nivc::{FoldingVariables};
 
 global PUBLIC_IO_VARS: u32 = 11;
-global DATA_BYTES: u32 = 512;
+global DATA_BYTES: u32 = 64;
 
 fn main(
     folding_variables: pub FoldingVariables<PUBLIC_IO_VARS>,

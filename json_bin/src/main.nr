@@ -3,6 +3,7 @@ use nivc::{FoldingVariables};
 
 global PUBLIC_IO_VARS: u32 = 11;
 global DATA_BYTES: u32 = 512;
+global MAX_STACK_HEIGHT: u32 = 12;
 
 fn main(
     folding_variables: pub FoldingVariables<PUBLIC_IO_VARS>,
@@ -14,7 +15,11 @@ fn main(
     next_pc: Field,
 ) -> pub FoldingVariables<PUBLIC_IO_VARS> {
     let step_out: [Field; PUBLIC_IO_VARS] = extract(
-        data
+        data,
+        ciphertext_digest,
+        sequence_digest,
+        value_digest,
+        state,
         folding_variables.registers
     );
 

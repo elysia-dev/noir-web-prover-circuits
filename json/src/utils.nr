@@ -17,10 +17,10 @@ pub fn contains<let N: u32>(value: u8, array: [u8; N]) -> bool {
 
 /// Computes a polynomial hash digest of the input array `bytes` using the given `polynomial_input` as the base.
 /// The digest is calculated as: bytes[0] + bytes[1]*polynomial_input + bytes[2]*polynomial_input^2 + ..
-pub fn polynomial_digest(bytes: [Field; DATA_BYTES], polynomial_input: Field) -> Field {
+pub fn polynomial_digest<let N: u32>(bytes: [Field; N], polynomial_input: Field) -> Field {
     let mut digest = 0;
     let mut monomial = 1;
-    for i in 0..DATA_BYTES {
+    for i in 0..N {
         digest += bytes[i] * monomial;
         monomial *= polynomial_input;
     }
@@ -144,8 +144,8 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
     monomials: [Field; 3 * MAX_STACK_HEIGHT],
 ) -> Field {
     // Convert key bytes to JsonMaskType format
-    let mut key1_value: [Field; 256] = [0; 256];
-    let mut key2_value: [Field; 256] = [0; 256];
+    let mut key1_value: [Field; DATA_BYTES] = [0; DATA_BYTES];
+    let mut key2_value: [Field; DATA_BYTES] = [0; DATA_BYTES];
 
     for i in 0..key1_bytes.len() {
         key1_value[i] = Field::from(key1_bytes[i]);
