@@ -1,5 +1,3 @@
-
-
 /// Returns true if `a` and `b` are equal, false otherwise.
 pub fn is_equal(a: u8, b: u8) -> bool {
     a == b
@@ -18,7 +16,10 @@ pub fn contains<let N: u32>(value: u8, array: [u8; N]) -> bool {
 /// Computes a polynomial hash digest of the input array `bytes` using the given `polynomial_input` as the base.
 /// The digest is calculated as: bytes[0] + bytes[1]*polynomial_input + bytes[2]*polynomial_input^2 + ..
 
-pub fn polynomial_digest<let DATA_BYTES: u32>(bytes: [Field; DATA_BYTES], polynomial_input: Field) -> Field {
+pub fn polynomial_digest<let DATA_BYTES: u32>(
+    bytes: [Field; DATA_BYTES],
+    polynomial_input: Field,
+) -> Field {
     let mut digest = 0;
     let mut monomial = 1;
     for i in 0..DATA_BYTES {
@@ -43,7 +44,6 @@ pub fn polynomial_digest_with_counter<let DATA_BYTES: u32>(
     }
     digest
 }
-
 
 /// Represents a mask type for JSON tree hashing.
 /// - `is_array_index`: true if this mask is for an array index, false for an object key.
@@ -87,7 +87,7 @@ pub fn json_tree_hasher<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32>(
     (stack, tree_hashes)
 }
 
-pub fn compress_tree_hash<let MAX_STACK_HEIGHT:u32>(
+pub fn compress_tree_hash<let MAX_STACK_HEIGHT: u32>(
     stack: [[Field; 2]; MAX_STACK_HEIGHT],
     tree_hashes: [[Field; 2]; MAX_STACK_HEIGHT],
     monomials: [Field; 3 * MAX_STACK_HEIGHT],
@@ -158,24 +158,21 @@ pub fn create_nested_object_key_sequence_with_tree_hasher<let MAX_STACK_HEIGHT: 
         key2_value[i] = Field::from(key2_bytes[i]);
     }
 
-    let key1: JsonMaskType<DATA_BYTES> = JsonMaskType { is_array_index: false, value: key1_value, array_index: 0 };
-    let key2: JsonMaskType<DATA_BYTES> = JsonMaskType { is_array_index: false, value: key2_value, array_index: 0 };
+    let key1: JsonMaskType<DATA_BYTES> =
+        JsonMaskType { is_array_index: false, value: key1_value, array_index: 0 };
+    let key2: JsonMaskType<DATA_BYTES> =
+        JsonMaskType { is_array_index: false, value: key2_value, array_index: 0 };
 
     // Create key sequence with length DATA_BYTES
-    let default_key: JsonMaskType<DATA_BYTES> = JsonMaskType {
-        is_array_index: false,
-        value: [0; DATA_BYTES],
-        array_index: 0,
-    };
+    let default_key: JsonMaskType<DATA_BYTES> =
+        JsonMaskType { is_array_index: false, value: [0; DATA_BYTES], array_index: 0 };
     let mut key_sequence: [JsonMaskType<DATA_BYTES>; DATA_BYTES] = [default_key; DATA_BYTES];
     key_sequence[0] = key1;
     key_sequence[1] = key2;
 
-    let (stack, tree_hashes) = json_tree_hasher::<DATA_BYTES, MAX_STACK_HEIGHT>(ciphertext_digest, key_sequence);
+    let (stack, tree_hashes) =
+        json_tree_hasher::<DATA_BYTES, MAX_STACK_HEIGHT>(ciphertext_digest, key_sequence);
 
     // Use compress_tree_hash to get the sequence digest
     compress_tree_hash(stack, tree_hashes, monomials)
 }
-
-
-
