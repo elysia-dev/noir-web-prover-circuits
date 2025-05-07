@@ -1,0 +1,10 @@
+[package]
+authors          = ["qpzm"]
+compiler_version = ">=0.36.0"
+name             = "json_bin"
+type             = "bin"
+version          = "0.1.0"
+
+[dependencies]
+json = { path = "../json" }
+nivc = { path = "../nivc" }

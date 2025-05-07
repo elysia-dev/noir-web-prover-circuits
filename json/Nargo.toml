@@ -1,0 +1,10 @@
+[package]
+name = "json"
+type = "lib"
+authors = ["Karl Yu"]
+
+[dependencies]
+noir_json_parser = { git = "https://github.com/noir-lang/noir_json_parser", tag = "v0.4.0" }
+
+
+
