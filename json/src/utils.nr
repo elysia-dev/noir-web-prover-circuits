@@ -1,5 +1,3 @@
-use crate::language::{DATA_BYTES, MAX_STACK_HEIGHT};
-
 /// Returns true if `a` and `b` are equal, false otherwise.
 pub fn is_equal(a: u8, b: u8) -> bool {
     a == b
@@ -17,10 +15,13 @@ pub fn contains<let N: u32>(value: u8, array: [u8; N]) -> bool {
 
 /// Computes a polynomial hash digest of the input array `bytes` using the given `polynomial_input` as the base.
 /// The digest is calculated as: bytes[0] + bytes[1]*polynomial_input + bytes[2]*polynomial_input^2 + ..
-pub fn polynomial_digest<let N: u32>(bytes: [Field; N], polynomial_input: Field) -> Field {
+pub fn polynomial_digest<let DATA_BYTES: u32>(
+    bytes: [Field; DATA_BYTES],
+    polynomial_input: Field,
+) -> Field {
     let mut digest = 0;
     let mut monomial = 1;
-    for i in 0..N {
+    for i in 0..DATA_BYTES {
         digest += bytes[i] * monomial;
         monomial *= polynomial_input;
     }
@@ -29,7 +30,7 @@ pub fn polynomial_digest<let N: u32>(bytes: [Field; N], polynomial_input: Field)
 
 /// Computes a polynomial hash digest of the input array `bytes` using the given `polynomial_input` as the base,
 /// starting with an initial power `pow_ctr` instead of 1.
-pub fn polynomial_digest_with_counter(
+pub fn polynomial_digest_with_counter<let DATA_BYTES: u32>(
     bytes: [Field; DATA_BYTES],
     polynomial_input: Field,
     pow_ctr: Field,
@@ -47,31 +48,32 @@ pub fn polynomial_digest_with_counter(
 /// - `is_array_index`: true if this mask is for an array index, false for an object key.
 /// - `value`: the key value as a 32-byte field array.
 /// - `array_index`: the index if this is an array element.
-pub struct JsonMaskType {
+
+pub struct JsonMaskType<let DATA_BYTES: u32> {
     pub is_array_index: bool,
     pub value: [Field; DATA_BYTES],
     pub array_index: u32,
 }
 
 /// returns stack and tree hashes
-pub fn json_tree_hasher<let N: u32>(
+pub fn json_tree_hasher<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32>(
     ct_digest: Field,
-    key_sequence: [JsonMaskType; N],
+    key_sequence: [JsonMaskType<DATA_BYTES>; DATA_BYTES],
 ) -> ([[Field; 2]; MAX_STACK_HEIGHT], [[Field; 2]; MAX_STACK_HEIGHT]) {
     let mut stack: [[Field; 2]; MAX_STACK_HEIGHT] = [[0; 2]; MAX_STACK_HEIGHT];
     let mut tree_hashes: [[Field; 2]; MAX_STACK_HEIGHT] = [[0; 2]; MAX_STACK_HEIGHT];
 
     stack[0][0] = 1;
 
-    for i in 0..N {
+    for i in 0..MAX_STACK_HEIGHT {
         let key = key_sequence[i];
 
         if !key.is_array_index {
             stack[i] = [1, 1];
             let mut key_digest = 0;
             let mut monomial = 1;
-            for i in 0..DATA_BYTES {
-                key_digest += key.value[i] * monomial;
+            for j in 0..DATA_BYTES{
+                key_digest += key.value[j] * monomial;
                 monomial *= ct_digest;
             }
             tree_hashes[i][0] = key_digest;
@@ -84,7 +86,7 @@ pub fn json_tree_hasher<let N: u32>(
     (stack, tree_hashes)
 }
 
-pub fn compress_tree_hash(
+pub fn compress_tree_hash<let MAX_STACK_HEIGHT: u32>(
     stack: [[Field; 2]; MAX_STACK_HEIGHT],
     tree_hashes: [[Field; 2]; MAX_STACK_HEIGHT],
     monomials: [Field; 3 * MAX_STACK_HEIGHT],
@@ -137,7 +139,7 @@ pub fn create_object_key_sequence(key_bytes: [u8], ciphertext_digest: Field) -> 
 
 // only for testing
 // Create a sequence digest for a nested object path (e.g., obj.nested)
-pub fn create_nested_object_key_sequence_with_tree_hasher(
+pub fn create_nested_object_key_sequence_with_tree_hasher<let MAX_STACK_HEIGHT: u32, let DATA_BYTES: u32>(
     key1_bytes: [u8],
     key2_bytes: [u8],
     ciphertext_digest: Field,
@@ -155,16 +157,20 @@ pub fn create_nested_object_key_sequence_with_tree_hasher(
         key2_value[i] = Field::from(key2_bytes[i]);
     }
 
-    // Create JsonMaskType objects
-    let key1 = JsonMaskType { is_array_index: false, value: key1_value, array_index: 0 };
+    let key1: JsonMaskType<DATA_BYTES> =
+        JsonMaskType { is_array_index: false, value: key1_value, array_index: 0 };
+    let key2: JsonMaskType<DATA_BYTES> =
+        JsonMaskType { is_array_index: false, value: key2_value, array_index: 0 };
 
-    let key2 = JsonMaskType { is_array_index: false, value: key2_value, array_index: 0 };
+    // Create key sequence with length DATA_BYTES
+    let default_key: JsonMaskType<DATA_BYTES> =
+        JsonMaskType { is_array_index: false, value: [0; DATA_BYTES], array_index: 0 };
+    let mut key_sequence: [JsonMaskType<DATA_BYTES>; DATA_BYTES] = [default_key; DATA_BYTES];
+    key_sequence[0] = key1;
+    key_sequence[1] = key2;
 
-    // Create key sequence
-    let key_sequence = [key1, key2];
-
-    // Use json_tree_hasher to generate stack and tree hash
-    let (stack, tree_hashes) = json_tree_hasher(ciphertext_digest, key_sequence);
+    let (stack, tree_hashes) =
+        json_tree_hasher::<DATA_BYTES, MAX_STACK_HEIGHT>(ciphertext_digest, key_sequence);
 
     // Use compress_tree_hash to get the sequence digest
     compress_tree_hash(stack, tree_hashes, monomials)

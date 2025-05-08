@@ -38,8 +38,8 @@ pub comptime global E_CHAR: u8 = 69; // E
 pub comptime global PLUS: u8 = 43; // +
 pub comptime global MINUS: u8 = 45; // -
 
-//Since Noir doesn't support dynamic length at compile time
-//We need to hardcode it instead
-pub comptime global MAX_STACK_HEIGHT: u32 = 12;
-pub comptime global DATA_BYTES: u32 = 512;
-pub comptime global PUBLIC_IO_LENGTH: u32 = 11;
+//These params are passing into functions in a generic way
+//Now they mainly serve for test
+pub comptime global TEST_MAX_STACK_HEIGHT: u32 = 12;
+pub comptime global TEST_PUBLIC_IO_LENGTH: u32 = 11;
+pub comptime global TEST_DATA_BYTES: u32 = 256;

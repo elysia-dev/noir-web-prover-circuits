@@ -1,4 +1,4 @@
-use json::extractor::{extract};
+use json::extractor::ExtractorState;
 use nivc::{FoldingVariables};
 
 global PUBLIC_IO_VARS: u32 = 11;
@@ -14,12 +14,15 @@ fn main(
     state: [Field; MAX_STACK_HEIGHT * 4 + 4],
     next_pc: Field,
 ) -> pub FoldingVariables<PUBLIC_IO_VARS> {
-    let step_out: [Field; PUBLIC_IO_VARS] = extract(
+    let extractor = ExtractorState::<DATA_BYTES, MAX_STACK_HEIGHT, PUBLIC_IO_VARS> {
         data,
         ciphertext_digest,
         sequence_digest,
         value_digest,
         state,
+    };
+
+    let step_out: [Field; PUBLIC_IO_VARS] = extractor.extract(
         folding_variables.registers
     );
 

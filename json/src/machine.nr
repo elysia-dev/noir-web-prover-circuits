@@ -9,7 +9,7 @@
 use crate::utils::{contains, is_equal};
 
 use super::language::{
-    MAX_STACK_HEIGHT, // Maximum depth of nested JSON structures
+    TEST_MAX_STACK_HEIGHT,
     START_BRACE, END_BRACE, START_BRACKET, END_BRACKET, // JSON structure characters: {, }, [, ]
     COLON, COMMA, // JSON separator characters: :, ,
     ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, // Numeric characters
@@ -18,7 +18,7 @@ use super::language::{
     QUOTE, ESCAPE, // String-related characters: ", \
 };
 
-pub struct StateUpdateHasherInput {
+pub struct StateUpdateHasherInput<let MAX_STACK_HEIGHT: u32> {
     pub byte: u8, // Current byte being processed from the JSON input
     pub stack: [[Field; 2]; MAX_STACK_HEIGHT], // Current stack state tracking JSON structure
     // First element indicates type: 1=object, 2=array
@@ -36,7 +36,7 @@ pub struct StateUpdateHasherInput {
 //  - `next_stack[MAX_STACK_HEIGHT][2]`: the stack machine's stack after reading `byte`.
 //  - `next_parsing_string`            : a bool flag that indicates whether the parser is currently parsing a string or not after reading `byte`.
 //  - `next_parsing_primitive`            : a bool flag that indicates whether the parser is currently parsing a number or not after reading `byte`.
-pub struct StateUpdateHasherOutput {
+pub struct StateUpdateHasherOutput<let MAX_STACK_HEIGHT: u32> {
     pub next_stack: [[Field; 2]; MAX_STACK_HEIGHT], // Updated stack state after processing the byte
     pub next_parsing_string: bool, // Updated string parsing flag
     pub next_parsing_primitive: bool, // Updated primitive parsing flag
@@ -47,7 +47,7 @@ pub struct StateUpdateHasherOutput {
 
 /// Default implementation for StateUpdateHasherOutput
 /// Initializes all fields to their default values (zeros and false)
-impl Default for StateUpdateHasherOutput {
+impl<let MAX_STACK_HEIGHT: u32> Default for StateUpdateHasherOutput<MAX_STACK_HEIGHT> {
     fn default() -> Self {
         StateUpdateHasherOutput {
             next_stack: [[0; 2]; MAX_STACK_HEIGHT],
@@ -60,7 +60,7 @@ impl Default for StateUpdateHasherOutput {
     }
 }
 
-pub struct RewriteStackInput {
+pub struct RewriteStackInput<let MAX_STACK_HEIGHT: u32> {
     pub stack: [[Field; 2]; MAX_STACK_HEIGHT], // Current stack state
     pub tree_hash: [[Field; 2]; MAX_STACK_HEIGHT], // Current tree hash state
     pub read_write_value: Field, // Value to write to the stack (from state_to_mask)
@@ -82,7 +82,7 @@ pub struct RewriteStackInput {
 }
 
 /// Contains the updated stack and tree hash after processing a byte.
-pub struct RewriteStackOutput {
+pub struct RewriteStackOutput<let MAX_STACK_HEIGHT: u32> {
     pub next_monomial: Field, // Updated monomial value for polynomial hash
     pub next_stack: [[Field; 2]; MAX_STACK_HEIGHT], // Updated stack state
     pub next_tree_hash: [[Field; 2]; MAX_STACK_HEIGHT], // Updated tree hash state
@@ -141,23 +141,16 @@ fn state_to_mask(
 
 /// Gets the top element of the stack and its position.
 /// The stack represents the current JSON structure being parsed
-pub fn get_top_of_stack(stack: [[Field; 2]; MAX_STACK_HEIGHT]) -> ([Field; 2], Field) {
+pub fn get_top_of_stack<let MAX_STACK_HEIGHT: u32>(
+    stack: [[Field; 2]; MAX_STACK_HEIGHT],
+) -> ([Field; 2], Field) {
     let mut value: [Field; 2] = [Field::from(0), Field::from(0)];
     let mut selector: Field = Field::from(0);
 
-    // Count non-zero entries and keep track of values
     for i in 0..MAX_STACK_HEIGHT {
-        // Check if stack[i] is not [0,0] (i.e., it's allocated/used)
         let is_allocated = stack[i] != [Field::from(0), Field::from(0)];
-
-        // Increment selector if slot is allocated
         if is_allocated {
             selector += Field::from(1);
-        }
-
-        // Store this value if it's the highest allocated slot
-        // This effectively finds the top of the stack
-        if is_allocated {
             value = stack[i];
         }
     }
@@ -166,9 +159,10 @@ pub fn get_top_of_stack(stack: [[Field; 2]; MAX_STACK_HEIGHT]) -> ([Field; 2], F
 }
 
 /// Rewrites the stack and tree hash based on the current byte and parsing state.
-pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
+pub fn rewrite_stack<let MAX_STACK_HEIGHT: u32>(
+    input: RewriteStackInput<MAX_STACK_HEIGHT>,
+) -> RewriteStackOutput<MAX_STACK_HEIGHT> {
     // Extract all inputs
-    let stack = input.stack;
     let tree_hash = input.tree_hash;
     let read_write_value = input.read_write_value;
     let read_start_brace = input.read_start_brace;
@@ -192,7 +186,8 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
     let read_comma_and_not_parsing_string = read_comma & !parsing_string;
 
     // Get top of stack
-    let (current_value, pointer) = get_top_of_stack(stack);
+    // let (current_value, pointer) = get_top_of_stack(input.stack);
+    let (current_value, pointer) = get_top_of_stack::<MAX_STACK_HEIGHT>(input.stack);
 
     // Check if value indicates currently in an array
     let in_array = current_value[0] == Field::from(2);
@@ -298,11 +293,12 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
         [[Field::from(0); 2]; MAX_STACK_HEIGHT];
 
     for i in 0..MAX_STACK_HEIGHT {
-        next_stack[i][0] = stack[i][0] + (Field::from(indicator[i] as u64) * stack_change_value[0]);
+        next_stack[i][0] =
+            input.stack[i][0] + (Field::from(indicator[i] as u64) * stack_change_value[0]);
         let second_index_clear =
-            stack[i][1] * Field::from((read_end_brace | read_end_bracket) as u64);
+            input.stack[i][1] * Field::from((read_end_brace | read_end_bracket) as u64);
 
-        next_stack[i][1] = stack[i][1]
+        next_stack[i][1] = input.stack[i][1]
             + (Field::from(indicator[i] as u64) * (stack_change_value[1] - second_index_clear));
 
         if to_update_hash[i][0] {
@@ -334,7 +330,9 @@ pub fn rewrite_stack(input: RewriteStackInput) -> RewriteStackOutput {
 }
 
 //Update current status based on input byte and output the next
-pub fn state_update_hasher(input: StateUpdateHasherInput) -> StateUpdateHasherOutput {
+pub fn state_update_hasher<let MAX_STACK_HEIGHT: u32>(
+    input: StateUpdateHasherInput<MAX_STACK_HEIGHT>,
+) -> StateUpdateHasherOutput<MAX_STACK_HEIGHT> {
     let byte = input.byte;
     let stack = input.stack;
     let parsing_string = input.parsing_string;
@@ -499,20 +497,20 @@ fn test_state_to_mask() {
 #[test]
 fn test_get_top_of_stack() {
     // Test case 1: Empty stack
-    let empty_stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let empty_stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let (value, pointer) = get_top_of_stack(empty_stack);
     assert(value == [Field::from(0), Field::from(0)]);
     assert(pointer == 0);
 
     // Test case 2: Stack with one element
-    let mut one_element_stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut one_element_stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     one_element_stack[0] = [Field::from(1), Field::from(0)];
     let (value, pointer) = get_top_of_stack(one_element_stack);
     assert(value == [Field::from(1), Field::from(0)]);
     assert(pointer == 1);
 
     // Test case 3: Stack with multiple elements
-    let mut multi_element_stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut multi_element_stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     multi_element_stack[0] = [Field::from(1), Field::from(0)];
     multi_element_stack[1] = [Field::from(2), Field::from(1)];
     multi_element_stack[2] = [Field::from(1), Field::from(1)];
@@ -525,8 +523,8 @@ fn test_get_top_of_stack() {
 fn test_state_update_hasher_quote() {
     // Test state update with a quote character to toggle string parsing
     let byte = QUOTE;
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = false; // Not parsing string initially
     let parsing_primitive = false;
     let polynomial_input = Field::from(1);
@@ -575,8 +573,8 @@ fn test_state_update_hasher_quote() {
 fn test_state_update_hasher_basic() {
     // Test basic state update with a simple character (not a special character)
     let byte = 1;
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = false;
     let parsing_primitive = false;
     let polynomial_input = Field::from(1);
@@ -606,8 +604,8 @@ fn test_state_update_hasher_basic() {
 fn test_state_update_hasher_escape() {
     // Test state update with escape character
     let byte = ESCAPE;
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = true; // Parsing string
     let parsing_primitive = false;
     let polynomial_input = Field::from(1);
@@ -656,8 +654,8 @@ fn test_state_update_hasher_escape() {
 fn test_state_update_hasher_primitive() {
     // Test state update with a primitive character (number)
     let byte = ZERO; // '0'
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = false;
     let parsing_primitive = false; // Not parsing primitive initially
     let polynomial_input = Field::from(1);
@@ -706,8 +704,8 @@ fn test_state_update_hasher_primitive() {
 fn test_state_update_hasher_delimiter() {
     // Test state update with a delimiter character (comma)
     let byte = COMMA;
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = false;
     let parsing_primitive = true; // Parsing primitive
     let polynomial_input = Field::from(1);
@@ -736,10 +734,10 @@ fn test_state_update_hasher_delimiter() {
 #[test]
 fn test_rewrite_stack_object_key() {
     // Test rewriting stack when processing an object key
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack[0] = [Field::from(1), Field::from(0)]; // Object key
 
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let polynomial_input = Field::from(1);
 
     let input = RewriteStackInput {
@@ -773,10 +771,10 @@ fn test_rewrite_stack_object_key() {
 #[test]
 fn test_rewrite_stack_object_value() {
     // Test rewriting stack when processing an object value
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack[0] = [Field::from(1), Field::from(1)]; // Object value
 
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let polynomial_input = Field::from(1);
 
     let input = RewriteStackInput {
@@ -810,10 +808,10 @@ fn test_rewrite_stack_object_value() {
 #[test]
 fn test_rewrite_stack_array() {
     // Test rewriting stack when processing an array
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack[0] = [Field::from(2), Field::from(0)]; // Array at index 0
 
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let polynomial_input = Field::from(1);
 
     let input = RewriteStackInput {
@@ -847,10 +845,10 @@ fn test_rewrite_stack_array() {
 #[test]
 fn test_rewrite_stack_push_pop() {
     // Test pushing and popping from stack
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack[0] = [Field::from(1), Field::from(0)]; // Object key
 
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let polynomial_input = Field::from(1);
 
     // Test pushing to stack (start brace)
@@ -883,7 +881,7 @@ fn test_rewrite_stack_push_pop() {
     assert(output_push.next_stack[1][0] == Field::from(1));
 
     // Test popping from stack (end brace)
-    let mut stack2 = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack2 = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack2[0] = [Field::from(1), Field::from(1)];
     stack2[1] = [Field::from(1), Field::from(0)];
 
