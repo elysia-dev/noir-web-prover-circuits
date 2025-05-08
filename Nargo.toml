@@ -1,2 +1,2 @@
 [workspace]
-members = ["http", "bin","json"]
+members = ["http", "bin", "json", "chacha20"]

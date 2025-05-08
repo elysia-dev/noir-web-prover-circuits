@@ -1,7 +1,7 @@
 [package]
 authors          = ["Colin Roberts"]
 compiler_version = ">=1.0.0"
-name             = "http"
+name             = "chacha20"
 type             = "lib"
 version          = "0.1.0"
 
