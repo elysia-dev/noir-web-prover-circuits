@@ -4,11 +4,11 @@ use crate::utils::{
 };
 
 pub struct ExtractorState<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> {
-    data: [u8; DATA_BYTES],
-    ciphertext_digest: Field,
-    sequence_digest: Field,
-    value_digest: Field,
-    state: [Field; MAX_STACK_HEIGHT * 4 + 4],
+    pub data: [u8; DATA_BYTES],
+    pub ciphertext_digest: Field,
+    pub sequence_digest: Field,
+    pub value_digest: Field,
+    pub state: [Field; MAX_STACK_HEIGHT * 4 + 4],
 }
 
 // It processes JSON data byte-by-byte to find and extract specific values
