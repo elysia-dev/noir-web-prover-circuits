@@ -10,7 +10,7 @@ The implementation consists of a stack-based state machine that processes JSON d
 The main component that processes JSON data to find and extract specific values based on a provided path (sequence digest) and expected value (value digest). It verifies that a specific path within the JSON leads to an expected value, producing a zero-knowledge proof of this relationship.
 
 <div align="center">  
-  <img src="image/JsonEextraction.jpg" alt="JsonExtraction" />  
+  <img src="image/JsonExtraction.jpg" alt="JsonExtraction" />  
 </div>
 
 ### 2. State Machine Parser (machine.nr) 
