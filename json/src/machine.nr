@@ -9,7 +9,7 @@
 use crate::utils::{contains, is_equal};
 
 use super::language::{
-    MAX_STACK_HEIGHT, // Maximum depth of nested JSON structures
+    TEST_MAX_STACK_HEIGHT,
     START_BRACE, END_BRACE, START_BRACKET, END_BRACKET, // JSON structure characters: {, }, [, ]
     COLON, COMMA, // JSON separator characters: :, ,
     ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, // Numeric characters
@@ -497,20 +497,20 @@ fn test_state_to_mask() {
 #[test]
 fn test_get_top_of_stack() {
     // Test case 1: Empty stack
-    let empty_stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let empty_stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let (value, pointer) = get_top_of_stack(empty_stack);
     assert(value == [Field::from(0), Field::from(0)]);
     assert(pointer == 0);
 
     // Test case 2: Stack with one element
-    let mut one_element_stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut one_element_stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     one_element_stack[0] = [Field::from(1), Field::from(0)];
     let (value, pointer) = get_top_of_stack(one_element_stack);
     assert(value == [Field::from(1), Field::from(0)]);
     assert(pointer == 1);
 
     // Test case 3: Stack with multiple elements
-    let mut multi_element_stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut multi_element_stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     multi_element_stack[0] = [Field::from(1), Field::from(0)];
     multi_element_stack[1] = [Field::from(2), Field::from(1)];
     multi_element_stack[2] = [Field::from(1), Field::from(1)];
@@ -523,8 +523,8 @@ fn test_get_top_of_stack() {
 fn test_state_update_hasher_quote() {
     // Test state update with a quote character to toggle string parsing
     let byte = QUOTE;
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = false; // Not parsing string initially
     let parsing_primitive = false;
     let polynomial_input = Field::from(1);
@@ -573,8 +573,8 @@ fn test_state_update_hasher_quote() {
 fn test_state_update_hasher_basic() {
     // Test basic state update with a simple character (not a special character)
     let byte = 1;
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = false;
     let parsing_primitive = false;
     let polynomial_input = Field::from(1);
@@ -604,8 +604,8 @@ fn test_state_update_hasher_basic() {
 fn test_state_update_hasher_escape() {
     // Test state update with escape character
     let byte = ESCAPE;
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = true; // Parsing string
     let parsing_primitive = false;
     let polynomial_input = Field::from(1);
@@ -654,8 +654,8 @@ fn test_state_update_hasher_escape() {
 fn test_state_update_hasher_primitive() {
     // Test state update with a primitive character (number)
     let byte = ZERO; // '0'
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = false;
     let parsing_primitive = false; // Not parsing primitive initially
     let polynomial_input = Field::from(1);
@@ -704,8 +704,8 @@ fn test_state_update_hasher_primitive() {
 fn test_state_update_hasher_delimiter() {
     // Test state update with a delimiter character (comma)
     let byte = COMMA;
-    let stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let parsing_string = false;
     let parsing_primitive = true; // Parsing primitive
     let polynomial_input = Field::from(1);
@@ -734,10 +734,10 @@ fn test_state_update_hasher_delimiter() {
 #[test]
 fn test_rewrite_stack_object_key() {
     // Test rewriting stack when processing an object key
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack[0] = [Field::from(1), Field::from(0)]; // Object key
 
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let polynomial_input = Field::from(1);
 
     let input = RewriteStackInput {
@@ -771,10 +771,10 @@ fn test_rewrite_stack_object_key() {
 #[test]
 fn test_rewrite_stack_object_value() {
     // Test rewriting stack when processing an object value
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack[0] = [Field::from(1), Field::from(1)]; // Object value
 
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let polynomial_input = Field::from(1);
 
     let input = RewriteStackInput {
@@ -808,10 +808,10 @@ fn test_rewrite_stack_object_value() {
 #[test]
 fn test_rewrite_stack_array() {
     // Test rewriting stack when processing an array
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack[0] = [Field::from(2), Field::from(0)]; // Array at index 0
 
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let polynomial_input = Field::from(1);
 
     let input = RewriteStackInput {
@@ -845,10 +845,10 @@ fn test_rewrite_stack_array() {
 #[test]
 fn test_rewrite_stack_push_pop() {
     // Test pushing and popping from stack
-    let mut stack = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack[0] = [Field::from(1), Field::from(0)]; // Object key
 
-    let tree_hash = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let tree_hash = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     let polynomial_input = Field::from(1);
 
     // Test pushing to stack (start brace)
@@ -881,7 +881,7 @@ fn test_rewrite_stack_push_pop() {
     assert(output_push.next_stack[1][0] == Field::from(1));
 
     // Test popping from stack (end brace)
-    let mut stack2 = [[Field::from(0), Field::from(0)]; MAX_STACK_HEIGHT];
+    let mut stack2 = [[Field::from(0), Field::from(0)]; TEST_MAX_STACK_HEIGHT];
     stack2[0] = [Field::from(1), Field::from(1)];
     stack2[1] = [Field::from(1), Field::from(0)];
 
