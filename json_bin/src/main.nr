@@ -1,5 +1,5 @@
 use json::extractor::ExtractorState;
-use nivc::{FoldingVariables};
+use nivc::FoldingVariables;
 
 global PUBLIC_IO_VARS: u32 = 11;
 global DATA_BYTES: u32 = 512;
@@ -22,12 +22,7 @@ fn main(
         state,
     };
 
-    let step_out: [Field; PUBLIC_IO_VARS] = extractor.extract(
-        folding_variables.registers
-    );
+    let step_out: [Field; PUBLIC_IO_VARS] = extractor.extract(folding_variables.registers);
 
-    FoldingVariables {
-        registers: step_out,
-        program_counter: next_pc,
-    }
+    FoldingVariables { registers: step_out, program_counter: next_pc }
 }

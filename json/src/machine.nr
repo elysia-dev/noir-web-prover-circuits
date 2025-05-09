@@ -9,8 +9,7 @@
 use crate::utils::{contains, is_equal};
 
 use super::language::{
-    TEST_MAX_STACK_HEIGHT,
-    START_BRACE, END_BRACE, START_BRACKET, END_BRACKET, // JSON structure characters: {, }, [, ]
+    TEST_MAX_STACK_HEIGHT, START_BRACE, END_BRACE, START_BRACKET, END_BRACKET, // JSON structure characters: {, }, [, ]
     COLON, COMMA, // JSON separator characters: :, ,
     ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, // Numeric characters
     N, U, L, F, A, S, E, T, R, // Characters for null, false, true

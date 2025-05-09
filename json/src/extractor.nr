@@ -1,7 +1,5 @@
 use crate::machine::{state_update_hasher, StateUpdateHasherInput};
-use crate::utils::{
-    compress_tree_hash, polynomial_digest, polynomial_digest_with_counter,
-};
+use crate::utils::{compress_tree_hash, polynomial_digest, polynomial_digest_with_counter};
 
 pub struct ExtractorState<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> {
     pub data: [u8; DATA_BYTES],
@@ -189,6 +187,7 @@ impl<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> 
 
         assert(
             (1 - is_value_digest_zero) * (is_new_state_digest_zero - is_step_out_zero_matched) == 0,
-        );        step_out
+        );
+        step_out
     }
 }

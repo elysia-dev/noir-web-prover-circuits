@@ -1,5 +1,5 @@
-use chacha20::setup::{SetupState};
-use nivc::{FoldingVariables};
+use chacha20::setup::SetupState;
+use nivc::FoldingVariables;
 
 global PUBLIC_IO_VARS: u32 = 11;
 global DATA_BYTES: u32 = 64;
@@ -16,8 +16,5 @@ fn main(
     let setup = SetupState { key, nonce, counter, plaintext, ciphertext_digest };
     let step_out: [Field; PUBLIC_IO_VARS] = setup.verify(folding_variables.registers);
 
-    FoldingVariables {
-        registers: step_out,
-        program_counter: next_pc,
-    }
+    FoldingVariables { registers: step_out, program_counter: next_pc }
 }

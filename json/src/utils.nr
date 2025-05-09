@@ -72,7 +72,7 @@ pub fn json_tree_hasher<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32>(
             stack[i] = [1, 1];
             let mut key_digest = 0;
             let mut monomial = 1;
-            for j in 0..DATA_BYTES{
+            for j in 0..DATA_BYTES {
                 key_digest += key.value[j] * monomial;
                 monomial *= ct_digest;
             }

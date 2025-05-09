@@ -1,4 +1,4 @@
-use crate::{main, FoldingVariables, PUBLIC_IO_VARS};
+use crate::{FoldingVariables, main, PUBLIC_IO_VARS};
 
 #[test]
 fn test_main() {
@@ -10,10 +10,7 @@ fn test_main() {
     let next_pc: Field = 0;
 
     let result: FoldingVariables<PUBLIC_IO_VARS> = main(
-        FoldingVariables {
-            registers: [0; PUBLIC_IO_VARS],
-            program_counter: 0,
-        },
+        FoldingVariables { registers: [0; PUBLIC_IO_VARS], program_counter: 0 },
         key,
         nonce,
         counter,
@@ -22,5 +19,5 @@ fn test_main() {
         next_pc,
     );
 
-    assert_eq!(result.registers, [0; PUBLIC_IO_VARS]);
+    assert_eq(result.registers, [0; PUBLIC_IO_VARS]);
 }
