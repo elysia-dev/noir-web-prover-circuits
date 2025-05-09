@@ -15,7 +15,6 @@ pub fn contains<let N: u32>(value: u8, array: [u8; N]) -> bool {
 
 /// Computes a polynomial hash digest of the input array `bytes` using the given `polynomial_input` as the base.
 /// The digest is calculated as: bytes[0] + bytes[1]*polynomial_input + bytes[2]*polynomial_input^2 + ..
-
 pub fn polynomial_digest<let DATA_BYTES: u32>(
     bytes: [Field; DATA_BYTES],
     polynomial_input: Field,
