@@ -1,7 +1,5 @@
 use crate::machine::{state_update_hasher, StateUpdateHasherInput};
-use crate::utils::{
-    compress_tree_hash, polynomial_digest, polynomial_digest_with_counter,
-};
+use crate::utils::{compress_tree_hash, polynomial_digest, polynomial_digest_with_counter};
 
 pub struct ExtractorState<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> {
     pub data: [u8; DATA_BYTES],
@@ -92,9 +90,14 @@ impl<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> 
                 0
             };
 
-            let mut tmp_sequence_matched = sequence_is_matched[data_idx];
+            let mut tmp_state_digest = state_digest[data_idx] ;
+            println(f"sequence_matched: {tmp_state_digest}"); //0x044f
+            let mut sequence_digest =self.sequence_digest;
+            println(f"sequence_digest: {sequence_digest}");// 0x0463
+
+            //let mut tmp_sequence_matched = sequence_is_matched[data_idx];
             //println(f"sequence_digest: {self.sequence_digest}");
-            println(f"sequence_matched: {tmp_sequence_matched}");
+            //println(f"sequence_matched: {tmp_sequence_matched}");
 
             // Check if value matches
             let mut value_digest_in_stack = Field::from(0);
@@ -187,8 +190,14 @@ impl<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> 
         println(f"sequence_digest: {temp_sequence_digest}");
         println(f"data_digest: {data_digest}");
 
+        println(f"is_value_digest_zero: {is_value_digest_zero}");
+        println(f"is_new_state_digest_zero: {is_new_state_digest_zero}");
+        println(f"is_step_out_zero_matched: {is_step_out_zero_matched}");
+
         assert(
             (1 - is_value_digest_zero) * (is_new_state_digest_zero - is_step_out_zero_matched) == 0,
-        );        step_out
+        );
+
+        step_out
     }
 }
