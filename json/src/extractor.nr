@@ -197,7 +197,7 @@ impl<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> 
         assert(
             (1 - is_value_digest_zero) * (is_new_state_digest_zero - is_step_out_zero_matched) == 0,
         );
-
+      
         step_out
     }
 }

@@ -69,6 +69,12 @@ pub fn json_tree_hasher<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32>(
         if !key.is_array_index {
             stack[i] = [1, 1];
             let key_digest = polynomial_digest(key.value, ct_digest);
+            let mut key_digest = 0;
+            let mut monomial = 1;
+            for j in 0..DATA_BYTES {
+                key_digest += key.value[j] * monomial;
+                monomial *= ct_digest;
+            }
             tree_hashes[i][0] = key_digest;
         } else {
             tree_hashes[i][0] = 0;
