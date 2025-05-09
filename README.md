@@ -23,10 +23,18 @@ This project is a fork of [Pluto's original Web Prover Circuits](https://github.
 - **JSON Filter Implementation**: Planning to implement filter logic beyond simple key extraction
 - Additional circuit implementations and optimizations
 
-### Running Tests
+### Scripts
 
-This project uses Noir's `nargo` toolchain. To run tests:
+This project uses Noir's `nargo` toolchain.
 
-```bash
+To run tests:
+
+```sh
 nargo test --show-output
+```
+
+To build:
+
+```sh
+nargo compile
 ```
