@@ -90,9 +90,14 @@ impl<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> 
                 0
             };
 
-            let mut tmp_sequence_matched = sequence_is_matched[data_idx];
+            // let mut tmp_state_digest = state_digest[data_idx];
+            // println(f"sequence_matched: {tmp_state_digest}"); //0x044f
+            // let mut sequence_digest = self.sequence_digest;
+            // println(f"sequence_digest: {sequence_digest}"); // 0x0463
+
+            //let mut tmp_sequence_matched = sequence_is_matched[data_idx];
             //println(f"sequence_digest: {self.sequence_digest}");
-            println(f"sequence_matched: {tmp_sequence_matched}");
+            //println(f"sequence_matched: {tmp_sequence_matched}");
 
             // Check if value matches
             let mut value_digest_in_stack = Field::from(0);
@@ -107,8 +112,8 @@ impl<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> 
 
             // println(f"value_digest_in_stack: {value_digest_in_stack}");
             // println(f"value_digest: {self.value_digest}");
-            let mut tmp2 = value_is_matched[data_idx];
-            println(f"value_matched: {tmp2}");
+            // let mut tmp2 = value_is_matched[data_idx];
+            // println(f"value_matched: {tmp2}");
 
             // Update total matches
             let matched = sequence_is_matched[data_idx] * value_is_matched[data_idx];
@@ -175,19 +180,24 @@ impl<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> 
         let is_new_state_digest_zero = (new_state_digest == 0) as u8;
         let is_step_out_zero_matched = (step_out[0] == self.value_digest) as u8;
 
-        let mut temp = step_out[0];
-        let mut temp_value_digest = self.value_digest;
-        let mut temp_sequence_digest = self.sequence_digest;
+        // let mut temp = step_out[0];
+        // let mut temp_value_digest = self.value_digest;
+        // let mut temp_sequence_digest = self.sequence_digest;
 
-        println(f"step_out[0]: {temp}");
-        println(f"value_digest: {temp_value_digest}");
+        // println(f"step_out[0]: {temp}");
+        // println(f"value_digest: {temp_value_digest}");
         println(f"total_matches: {total_matches}");
-        println(f"sequence_digest: {temp_sequence_digest}");
+        // println(f"sequence_digest: {temp_sequence_digest}");
         println(f"data_digest: {data_digest}");
+
+        println(f"is_value_digest_zero: {is_value_digest_zero}");
+        println(f"is_new_state_digest_zero: {is_new_state_digest_zero}");
+        println(f"is_step_out_zero_matched: {is_step_out_zero_matched}");
 
         assert(
             (1 - is_value_digest_zero) * (is_new_state_digest_zero - is_step_out_zero_matched) == 0,
         );
+
         step_out
     }
 }
