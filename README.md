@@ -16,7 +16,7 @@ This project is a fork of [Pluto's original Web Prover Circuits](https://github.
 
 - **ChaCha20 Encryption/Plaintext Authentication Circuit**: Verify encrypted data and authenticate plaintext without revealing sensitive information using chacha20 - implementation based on [RFC 7539](https://www.rfc-editor.org/rfc/rfc7539.html)
 - **HTTP Parser and Header Locker**: Parse and lock HTTP headers in zero-knowledge proofs, ensuring request integrity
-- **JSON Parser/Extractor**: Extract and verify specific fields from JSON data within zero-knowledge proofs
+- [**JSON Parser/Extractor**](https://github.com/elysia-dev/noir-web-prover-circuits/tree/main/json): Extract and verify specific fields from JSON data within zero-knowledge proofs
 
 ### Roadmap
 
