@@ -54,7 +54,6 @@ pub struct JsonMaskType<let DATA_BYTES: u32> {
     pub array_index: u32,
 }
 
-
 pub fn json_tree_hasher<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32>(
     ct_digest: Field,
     key_sequence: [JsonMaskType<DATA_BYTES>; MAX_STACK_HEIGHT],
@@ -77,7 +76,6 @@ pub fn json_tree_hasher<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32>(
     }
     (stack, tree_hashes)
 }
-
 
 pub fn compress_tree_hash<let MAX_STACK_HEIGHT: u32>(
     stack: [[Field; 2]; MAX_STACK_HEIGHT],
@@ -147,16 +145,24 @@ pub fn create_nested_object_key_sequence_with_tree_hasher<let MAX_STACK_HEIGHT: 
     for i in 0..key2_bytes.len() {
         key2_value[i] = Field::from(key2_bytes[i]);
     }
-    let key1: JsonMaskType<DATA_BYTES> = JsonMaskType { is_array_index: false, value: key1_value, array_index: 0 };
-    let key2: JsonMaskType<DATA_BYTES> = JsonMaskType { is_array_index: false, value: key2_value, array_index: 0 };
+    let key1: JsonMaskType<DATA_BYTES> =
+        JsonMaskType { is_array_index: false, value: key1_value, array_index: 0 };
+    let key2: JsonMaskType<DATA_BYTES> =
+        JsonMaskType { is_array_index: false, value: key2_value, array_index: 0 };
 
-    let default_key: JsonMaskType<DATA_BYTES> = JsonMaskType { is_array_index: false, value: [0; DATA_BYTES], array_index: 0 };
-    let mut key_sequence: [JsonMaskType<DATA_BYTES>; MAX_STACK_HEIGHT] = [default_key; MAX_STACK_HEIGHT];
+    let default_key: JsonMaskType<DATA_BYTES> =
+        JsonMaskType { is_array_index: false, value: [0; DATA_BYTES], array_index: 0 };
+    let mut key_sequence: [JsonMaskType<DATA_BYTES>; MAX_STACK_HEIGHT] =
+        [default_key; MAX_STACK_HEIGHT];
     key_sequence[0] = key1;
     key_sequence[1] = key2;
 
     let sequence_length = 2;
 
-    let (stack, tree_hashes) = json_tree_hasher::<DATA_BYTES, MAX_STACK_HEIGHT>(ciphertext_digest, key_sequence, sequence_length);
+    let (stack, tree_hashes) = json_tree_hasher::<DATA_BYTES, MAX_STACK_HEIGHT>(
+        ciphertext_digest,
+        key_sequence,
+        sequence_length,
+    );
     compress_tree_hash(stack, tree_hashes, monomials)
 }

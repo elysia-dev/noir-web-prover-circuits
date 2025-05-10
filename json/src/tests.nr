@@ -2,7 +2,7 @@ use crate::extractor::ExtractorState;
 use crate::language::{TEST_DATA_BYTES, TEST_MAX_STACK_HEIGHT, TEST_PUBLIC_IO_LENGTH};
 use crate::utils::{
     compress_tree_hash, create_nested_object_key_sequence_with_tree_hasher, create_value_digest,
-    polynomial_digest, polynomial_digest_with_counter,JsonMaskType,json_tree_hasher
+    json_tree_hasher, JsonMaskType, polynomial_digest, polynomial_digest_with_counter,
 };
 #[test]
 fn test_extract_with_padding() {
@@ -62,9 +62,9 @@ fn test_extract_nested_object() {
     // Create key sequence for "outer.inner" path
     let outer_key_bytes = [111, 117, 116, 101, 114]; // "outer"
     let inner_key_bytes = [105, 110, 110, 101, 114]; // "inner"
-    //debug: if we hardcode to let sequence_digest being equal to  state_digest 
-    //which is 0x044f , then this test passes 
-    //The problem arises from function create_nested_object_key_sequence_with_tree_hasher   
+    //debug: if we hardcode to let sequence_digest being equal to  state_digest
+    //which is 0x044f , then this test passes
+    //The problem arises from function create_nested_object_key_sequence_with_tree_hasher
     // let sequence_digest  = 0x044f;
 
     // Use nested object key sequence helper
@@ -75,7 +75,6 @@ fn test_extract_nested_object() {
         monomials,
     );
 
-    
     // Value digest for "value"
     let value_bytes = [118, 97, 108, 117, 101]; // "value"
     let value_digest = create_value_digest(value_bytes, ciphertext_digest);
@@ -158,7 +157,8 @@ fn test_extract_nested_object_with_different_digest() {
     let step_in_7 = 1;
     let data_digest = polynomial_digest_with_counter(zeroed_data, ciphertext_digest, step_in_7);
 
-    let step_in: [Field; TEST_PUBLIC_IO_LENGTH] = [data_digest, 1, 1, 0, 0, 0, 0, step_in_7, 0, 0, 0];
+    let step_in: [Field; TEST_PUBLIC_IO_LENGTH] =
+        [data_digest, 1, 1, 0, 0, 0, 0, step_in_7, 0, 0, 0];
 
     let extractor = ExtractorState::<TEST_DATA_BYTES, TEST_MAX_STACK_HEIGHT, TEST_PUBLIC_IO_LENGTH> {
         data,
@@ -175,11 +175,11 @@ fn test_extract_nested_object_with_different_digest() {
     assert(step_out[7] == ciphertext_digest.pow_32(json_bytes.len() as Field));
 }
 
-
 #[test]
 fn test_extract_array_element() {
     let json_bytes = [
-        91, 52, 50, 44, 123, 34, 97, 34, 58, 34, 98, 34, 125, 44, 34, 99, 34, 93, // [42,{"a":"b"},"c"]
+        91, 52, 50, 44, 123, 34, 97, 34, 58, 34, 98, 34, 125, 44, 34, 99, 34,
+        93, // [42,{"a":"b"},"c"]
     ];
 
     let mut data: [u8; TEST_DATA_BYTES] = [255; TEST_DATA_BYTES];
@@ -197,8 +197,10 @@ fn test_extract_array_element() {
 
     let mut key_value: [Field; TEST_DATA_BYTES] = [0; TEST_DATA_BYTES];
     let key = JsonMaskType { is_array_index: true, value: key_value, array_index: 0 };
-    let default_key = JsonMaskType { is_array_index: false, value: [0; TEST_DATA_BYTES], array_index: 0 };
-    let mut key_sequence: [JsonMaskType<TEST_DATA_BYTES>; TEST_MAX_STACK_HEIGHT] = [default_key; TEST_MAX_STACK_HEIGHT];
+    let default_key =
+        JsonMaskType { is_array_index: false, value: [0; TEST_DATA_BYTES], array_index: 0 };
+    let mut key_sequence: [JsonMaskType<TEST_DATA_BYTES>; TEST_MAX_STACK_HEIGHT] =
+        [default_key; TEST_MAX_STACK_HEIGHT];
     key_sequence[0] = key;
 
     let sequence_length = 1;
@@ -267,8 +269,10 @@ fn test_extract_primitive_values() {
         key_value[i] = Field::from(true_key[i]);
     }
     let key = JsonMaskType { is_array_index: false, value: key_value, array_index: 0 };
-    let default_key = JsonMaskType { is_array_index: false, value: [0; TEST_DATA_BYTES], array_index: 0 };
-    let mut key_sequence: [JsonMaskType<TEST_DATA_BYTES>; TEST_MAX_STACK_HEIGHT] = [default_key; TEST_MAX_STACK_HEIGHT];
+    let default_key =
+        JsonMaskType { is_array_index: false, value: [0; TEST_DATA_BYTES], array_index: 0 };
+    let mut key_sequence: [JsonMaskType<TEST_DATA_BYTES>; TEST_MAX_STACK_HEIGHT] =
+        [default_key; TEST_MAX_STACK_HEIGHT];
     key_sequence[0] = key;
 
     let sequence_length = 1;

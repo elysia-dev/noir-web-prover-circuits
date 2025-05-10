@@ -90,10 +90,10 @@ impl<let DATA_BYTES: u32, let MAX_STACK_HEIGHT: u32, let PUBLIC_IO_LENGTH: u32> 
                 0
             };
 
-            let mut tmp_state_digest = state_digest[data_idx] ;
+            let mut tmp_state_digest = state_digest[data_idx];
             println(f"sequence_matched: {tmp_state_digest}"); //0x044f
-            let mut sequence_digest =self.sequence_digest;
-            println(f"sequence_digest: {sequence_digest}");// 0x0463
+            let mut sequence_digest = self.sequence_digest;
+            println(f"sequence_digest: {sequence_digest}"); // 0x0463
 
             //let mut tmp_sequence_matched = sequence_is_matched[data_idx];
             //println(f"sequence_digest: {self.sequence_digest}");
